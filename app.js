@@ -1,4 +1,4 @@
-const state={photos:[],html:''};const $=id=>document.getElementById(id),fileInput=$('fileInput');
+const state={photos:[],html:''};const $=id=>document.getElementById(id),fileInput=$('fileInput'),apiKey=$('apiKey');apiKey.value=localStorage.getItem('triptail_api_key')||'';apiKey.addEventListener('change',()=>localStorage.setItem('triptail_api_key',apiKey.value.trim()));
 fileInput.addEventListener('change',e=>addFiles([...e.target.files]));$('dropzone').addEventListener('dragover',e=>e.preventDefault());$('dropzone').addEventListener('drop',e=>{e.preventDefault();addFiles([...e.dataTransfer.files])});
 function addFiles(files){state.photos.push(...files.filter(f=>f.type.startsWith('image/')).map(file=>({file,url:URL.createObjectURL(file),name:file.name})));renderPhotos()}
 function renderPhotos(){$('photoCount').textContent=`${state.photos.length}장`;$('photoGrid').innerHTML=state.photos.map((p,i)=>`<div class="thumb"><img src="${p.url}" alt="${p.name}"><button onclick="removePhoto(${i})">×</button></div>`).join('')}
