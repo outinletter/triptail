@@ -4,10 +4,24 @@
 
 ## 실행
 
-DeepSeek API 키를 환경 변수로 설정한 뒤 `npm start`를 실행하고 `http://localhost:3000`을 여세요. 스마트폰에서는 같은 네트워크의 PC 주소로 접속한 뒤 브라우저의 “홈 화면에 추가”를 선택하면 앱처럼 설치할 수 있습니다.
+`npm start`를 실행하고 `http://localhost:3000`을 여세요. DeepSeek API 키는 화면에 입력하거나 서버의 `DEEPSEEK_API_KEY` 환경 변수로 설정합니다. 화면에 입력한 키는 브라우저에 저장하지 않습니다. 스마트폰에서는 같은 네트워크의 PC 주소로 접속할 수 있습니다. 앱 설치와 클립보드 기능은 HTTPS 또는 localhost 환경을 권장합니다.
 
 ## 다음 단계
 
 Windows PowerShell 예시: `$env:DEEPSEEK_API_KEY="발급받은키"; npm start`
 
 생성된 HTML은 미리보기, 복사, 다운로드할 수 있습니다. API 키는 저장소에 기록하지 마세요.
+
+JPG, PNG, WEBP 사진을 최대 12장(장당 20MB) 업로드할 수 있습니다. 사진은 최대 변 1600px로 줄여 DeepSeek에 전송합니다. 사진별 배경 관찰, 장소 추정, 확신도를 표시하고 이를 바탕으로 블로그 HTML을 만듭니다. 여행지는 선택 입력이며, 추정한 장소와 사실은 게시 전에 확인하세요. HTML의 사진 표시는 게시할 때 실제 사진으로 교체하세요. 원격 접속 시 키 보호를 위해 HTTPS를 사용하세요.
+
+## Cloudflare Worker
+
+사진 선택 → 사진 장소 찾기 → 사진별 장소 확인 → 관련 배경 자료 선택 → 블로그 작성 순서로 사용합니다. Google Vision 후보와 인식 점수는 확정된 장소나 확률이 아닙니다. 사진별 장소를 수정하거나 미확인으로 진행할 수 있습니다. Wikipedia 검색 결과가 같은 장소인지 확인하고 선택한 자료만 글에 사용합니다. 자료가 없으면 역사 정보를 만들지 않습니다.
+
+Worker에 `GOOGLE_VISION_API_KEY`를 Secret으로 등록하고 Google Cloud에서 Cloud Vision API와 결제를 활성화하세요. 사진 장소 찾기 실행 시 사진은 Google Vision에 전송됩니다. 원본 JPEG의 EXIF GPS는 축소 전에 기기에서 읽고 자동 전송하지 않습니다. GPS가 없는 사진과 JPEG 이외의 형식도 랜드마크 인식을 사용할 수 있습니다. HEIC는 JPEG로 변환해야 합니다.
+
+로컬 서버에서도 같은 API 처리를 사용합니다. `DEEPSEEK_API_KEY`, `GOOGLE_VISION_API_KEY`를 환경 변수로 설정하세요. Node.js 20 이상이 필요합니다.
+
+`npm run deploy`로 `triptail` Worker와 화면 파일을 배포합니다. 기존 Cloudflare Git 빌드의 `npx wrangler deploy` 명령도 그대로 사용할 수 있습니다. Wrangler가 화면 파일만 `dist/`에 준비하며 `/api/*`는 `worker.js`에서 처리합니다. 로컬 Node 서버는 그대로 유지합니다.
+
+배포 후 Settings → Runtime variables and secrets에서 이름 `DEEPSEEK_API_KEY`, 유형 Secret으로 키를 등록하세요. 빌드 변수에 등록하지 마세요. 키는 코드나 배포 설정에 기록하지 않습니다. Secret이 없고 화면에서도 키를 입력하지 않으면 API는 안내 메시지와 HTTP 503을 반환합니다. 키 등록 전에는 실제 AI 분석을 완료할 수 없습니다.

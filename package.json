@@ -1,1 +1,1 @@
-{"name":"triptail","private":true,"type":"module","scripts":{"start":"node server.js"},"dependencies":{}}
+{"name":"triptail","private":true,"type":"module","scripts":{"start":"node server.js","build":"node scripts/build-assets.js","dev:worker":"npx wrangler dev","deploy":"npx wrangler deploy"},"dependencies":{}}

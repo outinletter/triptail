@@ -1,0 +1,12 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "triptail",
+  "main": "worker.js",
+  "compatibility_date": "2026-09-11",
+  "build": { "command": "node scripts/build-assets.js" },
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  }
+}
