@@ -66,7 +66,7 @@ enum BlogHTML {
         """
         <!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:"><title>\(escape(title))</title><style>
         body{margin:0;background:#f6f7f1;color:#232a25;font:17px/1.9 -apple-system,sans-serif}article{max-width:760px;margin:auto;padding:32px 24px 64px;background:#fff}header{padding:28px 0;border-bottom:1px solid #dde4d8;margin-bottom:32px}small{color:#6b8754;letter-spacing:3px;font-weight:700}h1{font-size:32px;line-height:1.4;color:#315c49}h2{font-size:25px;margin-top:44px}h3{font-size:21px;margin-top:32px;color:#315c49}p{margin:18px 0}blockquote{margin:24px 0;padding:18px 22px;border-left:4px solid #98b777;background:#f5f7ed;border-radius:8px}li{margin:8px 0}img{width:100%;border-radius:18px}figure{margin:28px 0}figcaption{font-size:13px;color:#6b746b}footer{margin-top:40px;font-size:13px;color:#6b746b}
-        </style></head><body><article><header><small>TRIPTAIL · TRAVEL JOURNAL</small><h1>\(escape(title))</h1></header>\(body)<footer>TripTail로 정리한 여행 이야기 · 정보는 방문 전에 다시 확인하세요.</footer></article></body></html>
+        </style></head><body><article><header><small>TRIPTAIL · TRAVEL JOURNAL</small><h1>\(escape(title))</h1></header>\(body)<footer>TripTail로 정리한 나의 여행 이야기</footer></article></body></html>
         """
     }
 }
@@ -86,5 +86,39 @@ enum PhotoCaptureDate {
             return formatter.string(from: date)
         }
         return nil
+    }
+}
+
+enum PhotoVerificationRules {
+    static func isKnown(_ value: String?) -> Bool {
+        let text = (value ?? "").trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return !text.isEmpty && !["미확인", "정보 없음", "unknown", "unidentified", "unknown place"].contains(text)
+    }
+}
+
+struct PlaceCoordinate: Codable, Hashable {
+    let latitude: Double
+    let longitude: Double
+}
+enum PhotoGPS {
+    static func read(_ gps: [String: Any]) -> PlaceCoordinate? {
+        guard var latitude = gps["Latitude"] as? Double, var longitude = gps["Longitude"] as? Double else { return nil }
+        if let ref = gps["LatitudeRef"] as? String {
+            guard ["N", "S"].contains(ref.uppercased()) else { return nil }
+            latitude = abs(latitude) * (ref.uppercased() == "S" ? -1 : 1)
+        }
+        if let ref = gps["LongitudeRef"] as? String {
+            guard ["E", "W"].contains(ref.uppercased()) else { return nil }
+            longitude = abs(longitude) * (ref.uppercased() == "W" ? -1 : 1)
+        }
+        guard latitude.isFinite, longitude.isFinite, abs(latitude) <= 90, abs(longitude) <= 180 else { return nil }
+        return PlaceCoordinate(latitude: latitude, longitude: longitude)
+    }
+}
+enum GoogleMapsURL {
+    static func search(place: String, coordinate: PlaceCoordinate?) -> URL {
+        var components = URLComponents(string: "https://www.google.com/maps/search/")!
+        components.queryItems = [URLQueryItem(name: "api", value: "1"), URLQueryItem(name: "query", value: coordinate.map { "\($0.latitude),\($0.longitude)" } ?? place)]
+        return components.url!
     }
 }

@@ -4,7 +4,7 @@ export async function identifyPlaces(input,env){
   if(!env.GOOGLE_VISION_API_KEY)return reply(503,{error:'Worker에 GOOGLE_VISION_API_KEY Secret을 등록하세요.'});
   const response=await fetch('https://vision.googleapis.com/v1/images:annotate',{
     method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':env.GOOGLE_VISION_API_KEY},signal:AbortSignal.timeout(60000),
-    body:JSON.stringify({requests:input.images.map(image=>({image:{content:image.split(',')[1]},features:[{type:'LANDMARK_DETECTION',maxResults:3},{type:'TEXT_DETECTION'}]}))})
+    body:JSON.stringify({requests:input.images.map(image=>({image:{content:image.split(',')[1]},features:[{type:'LANDMARK_DETECTION',maxResults:3},{type:'TEXT_DETECTION'},{type:'LABEL_DETECTION',maxResults:8}]}))})
   });
   const data=await response.json();
   if(!response.ok)return reply(response.status,{error:`Google Vision 오류 (${response.status}). API 활성화·결제·키 제한을 확인하세요.`});
@@ -12,8 +12,9 @@ export async function identifyPlaces(input,env){
   return reply(200,{photos:data.responses.map((photo,index)=>({
     id:`P${String(index+1).padStart(3,'0')}`,
     candidates:(photo.landmarkAnnotations||[]).map(item=>({name:item.description||'',score:item.score||0,coordinates:item.locations?.[0]?.latLng||null})),
+    objects:(photo.labelAnnotations||[]).map(item=>({name:item.description||'',score:item.score||0})),
     text:(photo.textAnnotations?.[0]?.description||'').slice(0,2000),
-    error:photo.error?'이 사진의 장소 인식에 실패했습니다. 직접 입력하거나 미확인으로 진행하세요.':''
+    error:photo.error?'이 사진의 장소 인식에 실패했습니다. 장소를 검색하고 촬영 대상을 확인해주세요.':''
   }))});
 }
 

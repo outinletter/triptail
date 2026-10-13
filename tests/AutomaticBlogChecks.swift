@@ -34,10 +34,21 @@ final class MockProtocol: URLProtocol {
   assert(PhotoCaptureDate.read(["DateTimeOriginal":"2023:02:29 00:00:00"]) == nil)
   assert(PhotoCaptureDate.read([:]) == nil)
   assert(PhotoCaptureDate.read(["DateTimeOriginal":"not a date", "DateTimeDigitized":"2022:01:02 12:00:00"]) == "2022-01-02")
+  assert(PhotoGPS.read(["Latitude":37.5665,"Longitude":126.978])?.latitude == 37.5665)
+  assert(PhotoGPS.read(["Latitude":33.0,"LatitudeRef":"S","Longitude":70.0,"LongitudeRef":"W"])?.longitude == -70)
+  assert(PhotoGPS.read(["Latitude":91.0,"Longitude":0.0]) == nil)
+  assert(PhotoGPS.read([:]) == nil)
+  let mapURL = GoogleMapsURL.search(place:"",coordinate:PlaceCoordinate(latitude:37.5,longitude:127.0))
+  assert(URLComponents(url:mapURL,resolvingAgainstBaseURL:false)?.queryItems?.first { $0.name == "query" }?.value == "37.5,127.0")
   URLProtocol.registerClass(MockProtocol.self)
-  let result = try await AIService.generateAutomatically(photos:[TravelPhoto(jpeg:Data([1]),text:"",captureDate:"2020-03-04"),TravelPhoto(jpeg:Data([2]),text:"")])
+  let photos = [TravelPhoto(jpeg:Data([1]),text:"",captureDate:"2020-03-04"),TravelPhoto(jpeg:Data([2]),text:"")]
+  do { _ = try await AIService.generateVerified(photos: photos, places: []); assertionFailure("Missing confirmation must block writing") } catch {}
+  do { _ = try await AIService.generateVerified(photos: photos, places: [ConfirmedPlace(id:"P001",place:"Correct Place",subject:"미확인",sources:[]), ConfirmedPlace(id:"P002",place:"Another Place",subject:"Building",sources:[])]); assertionFailure("Unknown subject must block writing") } catch {}
+  assert(MockProtocol.paths.isEmpty)
+  _ = try await AIService.identify(photos)
+  let result = try await AIService.generateVerified(photos: photos, places: [ConfirmedPlace(id:"P001",place:"Correct Place",detectionScore:0.8,subject:"Aqueduct",sources:[]),ConfirmedPlace(id:"P002",place:"Another Place",subject:"Building",sources:[])])
   assert(MockProtocol.paths == ["landmarks","research","deepseek"])
   assert(result.html.contains("<h2>Introduction</h2>"))
-  print("Automatic Vision -> sourced research -> HTML pipeline, uncertain places, EXIF dates and missing dates passed")
+  print("Verified place and subject gate, sourced HTML pipeline, EXIF dates and missing dates passed")
  }
 }

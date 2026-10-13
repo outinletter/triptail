@@ -12,13 +12,13 @@ test('Vision key, validation, candidates, no matches, and per-photo errors',asyn
     assert.equal(url,'https://vision.googleapis.com/v1/images:annotate');
     assert.equal(options.headers['x-goog-api-key'],'mock');
     const payload=JSON.parse(options.body);assert.equal(payload.requests[0].image.content,'YQ==');
-    assert.deepEqual(payload.requests[0].features.map(f=>f.type),['LANDMARK_DETECTION','TEXT_DETECTION']);
-    return Response.json({responses:[{landmarkAnnotations:[{description:'Aqueduct of Segovia',score:.92,locations:[{latLng:{latitude:40.95,longitude:-4.12}}]}],textAnnotations:[{description:'Segovia'}]},{},{error:{message:'private'}}]});
+    assert.deepEqual(payload.requests[0].features.map(f=>f.type),['LANDMARK_DETECTION','TEXT_DETECTION','LABEL_DETECTION']);
+    return Response.json({responses:[{landmarkAnnotations:[{description:'Aqueduct of Segovia',score:.92,locations:[{latLng:{latitude:40.95,longitude:-4.12}}]}],labelAnnotations:[{description:'Aqueduct',score:.95}],textAnnotations:[{description:'Segovia'}]},{},{error:{message:'private'}}]});
   });
   const response=await worker.fetch(request('landmarks',{images:[image,image,image]}),{GOOGLE_VISION_API_KEY:'mock'});
   assert.equal(response.status,200);const data=await response.json();
   assert.equal(data.photos[0].candidates[0].name,'Aqueduct of Segovia');
-  assert.equal(data.photos[0].text,'Segovia');assert.equal(data.photos[1].candidates.length,0);
+  assert.equal(data.photos[0].objects[0].name,'Aqueduct');assert.equal(data.photos[0].text,'Segovia');assert.equal(data.photos[1].candidates.length,0);
   assert.ok(data.photos[2].error);assert.ok(!JSON.stringify(data).includes('private'));
 });
 test('Research accepts only bounded place names, filters sources, and preserves missing results',async t=>{
