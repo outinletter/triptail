@@ -24,17 +24,29 @@ struct DraftEditor: View {
         NavigationStack {
             Form {
                 Section {
+                    JourneySteps(active: 3)
                     Label("여행 글이 준비되었습니다", systemImage: "checkmark.seal").font(.headline)
                     Text("내용과 출처를 확인하고 보관함에 저장하거나 공유하세요.").font(.footnote).foregroundStyle(.secondary)
-                }
-                Section("제목") { TextField("여행 글 제목", text: $draft.title) }
-                Section("본문 · 직접 확인하고 수정하세요") { TextEditor(text: $draft.text).frame(minHeight: 280).accessibilityLabel("여행 글 본문") }
-                Section {
+                    if !previewPhotos.isEmpty {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                ForEach(previewPhotos) { photo in
+                                    if let image = UIImage(data: photo.jpeg) {
+                                        Image(uiImage: image).resizable().scaledToFill().frame(width: 76, height: 76).clipShape(RoundedRectangle(cornerRadius: 14)).accessibilityLabel("선택한 여행 사진")
+                                    }
+                                }
+                            }
+                        }
+                    }
                     Button("기기에 저장") {
                         draft.updated = Date()
                         if library.save(draft) { dirty = false; notice = "보관함에 저장했습니다. 사진은 저장되지 않으며 글만 보관됩니다." }
                         else { notice = library.error }
-                    }.disabled(draft.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || draft.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    }.disabled(draft.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || draft.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty).buttonStyle(.borderedProminent).buttonBorderShape(.capsule).controlSize(.large)
+                }
+                Section("제목") { TextField("여행 글 제목", text: $draft.title) }
+                Section("본문 · 직접 확인하고 수정하세요") { TextEditor(text: $draft.text).frame(minHeight: 280).accessibilityLabel("여행 글 본문") }
+                Section {
                     Button("꾸며진 블로그 미리보기") { showPreview = true }
                     ShareLink(item: draft.title + "\n\n" + draft.text) { Label("글 공유", systemImage: "square.and.arrow.up") }
                     Button("블로그 HTML 파일 내보내기") { exporting = true }
@@ -70,10 +82,16 @@ struct LibraryView: View {
             }
             ForEach(library.drafts) { draft in
                 Button { selected = draft } label: {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(draft.title).font(.headline).foregroundStyle(.primary)
-                        Text(draft.text).lineLimit(2).foregroundStyle(.secondary)
-                        Text(draft.updated.formatted(date: .abbreviated, time: .shortened)).font(.caption).foregroundStyle(.secondary)
+                    HStack(alignment: .top, spacing: 14) {
+                        Image(systemName: "book.closed.fill").font(.title2).foregroundStyle(Color(red: 0.03, green: 0.32, blue: 0.26))
+                            .frame(width: 54, height: 70).background(Color(red: 0.92, green: 0.95, blue: 0.89), in: RoundedRectangle(cornerRadius: 16))
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(draft.title).font(.headline).foregroundStyle(.primary).lineLimit(2)
+                            Text(draft.text).font(.subheadline).lineLimit(2).foregroundStyle(.secondary)
+                            Label(draft.updated.formatted(date: .abbreviated, time: .omitted), systemImage: "calendar").font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer(minLength: 0)
+                        Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                     }
                 }
                 .padding(.vertical, 8)

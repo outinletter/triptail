@@ -8,6 +8,7 @@ struct ComposerView: View {
     @State private var selection: [PhotosPickerItem] = []
     @Binding var photos: [TravelPhoto]
     @State private var busy = false
+    @State private var stage = 0
     @State private var error: String?
     @State private var draft: TravelDraft?
     @State private var consent = false
@@ -18,50 +19,32 @@ struct ComposerView: View {
     @State private var photoMap: GoogleMapTarget?
 
     var body: some View {
-        Form {
-            Section {
-                VStack(alignment: .leading, spacing: 14) {
-                    Text("PHOTO · PLACE · HISTORY")
-                        .font(.caption.weight(.bold)).tracking(3)
-                        .foregroundStyle(Color(red: 0.42, green: 0.53, blue: 0.33))
-                    (Text("사진을 정리하고,\n")
-                     + Text("여행 글을 자동으로 ").foregroundColor(Color(red: 0.19, green: 0.36, blue: 0.29))
-                     + Text("완성하세요."))
-                        .font(.system(.largeTitle, design: .rounded, weight: .bold))
-                        .fixedSize(horizontal: false, vertical: true)
-                }.padding(.vertical, 12)
-                Text("사진을 선택하면 장소·촬영 대상을 분석합니다. 지도에서 확인한 뒤 소개와 역사, 주변 정보를 담은 여행 글을 완성하세요.").foregroundStyle(.secondary)
-                Button("샘플 여행 체험") {
-                    draft = TravelDraft.seoulSample
-                }.accessibilityIdentifier("sample")
-            }
-            Section("1. 사진 선택") {
-                PhotosPicker(selection: $selection, maxSelectionCount: 12, matching: .images, preferredItemEncoding: .current) {
-                    Label("사진 선택 (최대 12장)", systemImage: "photo.on.rectangle")
-                }.disabled(busy)
-                Text("선택한 사진만 읽습니다. HEIC도 지원하며 촬영일과 GPS를 기기에서 읽습니다. GPS 좌표를 Apple 지도에 보내 촬영 지역명을 조회하며 지도에서도 확인할 수 있습니다.").font(.footnote).foregroundStyle(.secondary)
-                ForEach(photos) { photo in
-                    HStack(alignment: .top) {
-                        if let image = UIImage(data: photo.jpeg) {
-                            Image(uiImage: image).resizable().scaledToFill().frame(width: 64, height: 64).clipShape(RoundedRectangle(cornerRadius: 8)).accessibilityLabel("선택한 여행 사진")
-                        }
-                        VStack(alignment: .leading) {
-                            Text(photo.text.isEmpty ? "장소는 AI 글쓰기에서 자동으로 분석합니다." : photo.text).font(.footnote).lineLimit(4)
-                            PhotoMetadataBubbles(photo: photo)
-                            if let coordinate = photo.coordinate {
-                                Button("촬영 위치를 Google 지도에서 보기") { photoMap = GoogleMapTarget(url: GoogleMapsURL.search(place: "", coordinate: coordinate)) }.buttonStyle(.borderless)
-                            }
-                            Button("사진 제거", role: .destructive) { photos.removeAll { $0.id == photo.id } }.buttonStyle(.borderless).disabled(busy)
-                        }
-                    }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                hero
+                JourneySteps(active: stage)
+                photoSelection
+                if !photos.isEmpty { photoDetails }
+                if busy {
+                    VStack(spacing: 12) {
+                        ProgressView(stage == 2 ? "소개·역사 자료로 글을 작성하는 중…" : "선택한 사진을 분석하는 중…")
+                        Button("취소") { task?.cancel() }.buttonStyle(.bordered)
+                    }.frame(maxWidth: .infinity).padding(20).background(.white, in: RoundedRectangle(cornerRadius: 22))
                 }
-            }
-            Section("2. 여행 블로그 만들기") {
-                Button { consent = true } label: { Label("AI로 사진 분석·글쓰기", systemImage: "sparkles").frame(maxWidth: .infinity, alignment: .center).multilineTextAlignment(.center) }.buttonStyle(.borderedProminent).controlSize(.large).disabled(busy || photos.isEmpty)
-                Text("사진의 장소와 촬영 대상을 인식하고 지도에서 확인한 뒤 관련 자료를 조회해 소개·역사·주변 정보를 담은 블로그 글을 만듭니다. 사진의 인물이나 민감한 정보가 포함되지 않았는지 확인하세요.").font(.footnote).foregroundStyle(.secondary)
-                if busy { ProgressView("사진 처리 또는 AI 응답을 기다리는 중…"); Button("취소") { task?.cancel() } }
-            }
-            if !photos.isEmpty { Section { Button("입력 초기화", role: .destructive) { confirmReset = true }.disabled(busy) } }
+                Button("샘플 여행 체험") { draft = TravelDraft.seoulSample }.accessibilityIdentifier("sample")
+                    .font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity).padding(.vertical, 8)
+                if !photos.isEmpty { Button("입력 초기화", role: .destructive) { confirmReset = true }.disabled(busy).font(.footnote) }
+            }.padding(.horizontal, 22).padding(.top, 18).padding(.bottom, 24)
+        }
+        .safeAreaInset(edge: .bottom) {
+            VStack(spacing: 8) {
+                Button { consent = true } label: {
+                    Label("AI로 사진 분석·글쓰기", systemImage: "sparkles")
+                        .font(.headline).frame(maxWidth: .infinity, minHeight: 32).multilineTextAlignment(.center)
+                }.buttonStyle(.borderedProminent).buttonBorderShape(.capsule).controlSize(.large).disabled(busy || photos.isEmpty)
+                Text(photos.isEmpty ? "사진을 선택하면 시작할 수 있어요" : "장소 확인 후 소개·역사·주변 정보를 작성합니다")
+                    .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
+            }.padding(.horizontal, 22).padding(.vertical, 12).background(.regularMaterial)
         }
         .scrollContentBackground(.hidden)
         .background(Color(red: 0.965, green: 0.970, blue: 0.948))
@@ -80,7 +63,7 @@ struct ComposerView: View {
         .onChange(of: selection) { _, items in
             guard !items.isEmpty else { return }
             task = Task {
-                busy = true
+                busy = true; stage = 0
                 defer { busy = false; selection = [] }
                 var loaded: [TravelPhoto] = []
                 do {
@@ -91,7 +74,7 @@ struct ComposerView: View {
                         loaded.append(try await PhotoService.prepare(data))
                     }
                     try Task.checkCancellation()
-                    if !items.isEmpty { photos = loaded }
+                    if !items.isEmpty { photos = Array((photos + loaded).prefix(12)) }
                 } catch is CancellationError {} catch { self.error = error.localizedDescription }
             }
         }
@@ -125,9 +108,77 @@ struct ComposerView: View {
         }
         #endif
     }
+    private var hero: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text("PHOTO · PLACE · HISTORY").font(.caption2.weight(.bold)).tracking(3).foregroundStyle(.secondary)
+            HStack(alignment: .center, spacing: 12) {
+                (Text("사진을 정리하고,\n") + Text("여행 글을 자동으로 ").foregroundColor(Color(red: 0.03, green: 0.32, blue: 0.26)) + Text("완성하세요."))
+                    .font(.system(.largeTitle, design: .rounded, weight: .bold)).fixedSize(horizontal: false, vertical: true)
+                if photos.isEmpty { TravelPostcards().frame(width: 94, height: 150).accessibilityHidden(true) }
+            }
+            Text("사진 속 장소를 확인하고,\n역사와 정보를 담은 기록을 남겨보세요.").font(.subheadline).foregroundStyle(.secondary).lineSpacing(4)
+            if photos.isEmpty {
+                PhotosPicker(selection: $selection, maxSelectionCount: 12, matching: .images, preferredItemEncoding: .current) {
+                    HStack { Image(systemName: "photo"); Text("사진 선택하기"); Image(systemName: "chevron.right") }
+                        .font(.headline).frame(maxWidth: .infinity, minHeight: 30)
+                }.buttonStyle(.borderedProminent).buttonBorderShape(.capsule).controlSize(.large).disabled(busy)
+            }
+            HStack(spacing: 10) {
+                FeatureTile(icon: "sparkles", title: "사진 분석", color: .purple)
+                FeatureTile(icon: "mappin.and.ellipse", title: "장소 확인", color: .orange)
+                FeatureTile(icon: "book.closed", title: "역사·정보", color: .blue)
+            }
+        }.padding(.vertical, 10)
+    }
+    private var photoSelection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text(photos.isEmpty ? "여행 사진 선택" : "선택한 사진").font(.title3.bold())
+                Spacer(); Text("\(photos.count)/12").font(.subheadline.monospacedDigit()).foregroundStyle(.secondary)
+            }
+            PhotosPicker(selection: $selection, maxSelectionCount: max(1, 12 - photos.count), matching: .images, preferredItemEncoding: .current) {
+                VStack(spacing: 12) {
+                    Image(systemName: "photo.badge.plus").font(.system(size: 32))
+                    Text(photos.isEmpty ? "사진 선택 (최대 12장)" : "사진 추가하기").font(.headline)
+                    if photos.isEmpty { Text("갤러리에서 여행 사진을 선택하세요").font(.footnote).foregroundStyle(.secondary) }
+                }.frame(maxWidth: .infinity).padding(.vertical, photos.isEmpty ? 28 : 14)
+                    .background(Color(red: 0.95, green: 0.97, blue: 0.94), in: RoundedRectangle(cornerRadius: 20))
+                    .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(Color.gray.opacity(0.3), style: StrokeStyle(lineWidth: 1, dash: [6])))
+            }.buttonStyle(.plain).disabled(busy || photos.count >= 12)
+            if !photos.isEmpty {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 90), spacing: 10)], spacing: 10) {
+                    ForEach(Array(photos.enumerated()), id: \.element.id) { index, photo in
+                        ZStack(alignment: .topLeading) {
+                            if let image = UIImage(data: photo.jpeg) {
+                                Image(uiImage: image).resizable().scaledToFill().frame(height: 106).frame(maxWidth: .infinity).clipped()
+                            }
+                            Text("\(index + 1)").font(.caption.bold()).padding(8).background(.ultraThinMaterial, in: Circle()).padding(6)
+                        }.clipShape(RoundedRectangle(cornerRadius: 16)).accessibilityLabel("선택한 여행 사진 \(index + 1)")
+                    }
+                }
+            }
+            Text("선택한 사진만 처리합니다. GPS 지역명 조회에는 Apple 지도를 사용합니다.").font(.caption).foregroundStyle(.secondary)
+        }.padding(18).background(.white, in: RoundedRectangle(cornerRadius: 26))
+    }
+    private var photoDetails: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Label("사진에서 확인한 정보", systemImage: "mappin.and.ellipse").font(.headline)
+            ForEach(Array(photos.enumerated()), id: \.element.id) { index, photo in
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("사진 \(index + 1)").font(.subheadline.bold())
+                    PhotoMetadataBubbles(photo: photo)
+                    if let coordinate = photo.coordinate {
+                        Button("촬영 위치를 Google 지도에서 보기") { photoMap = GoogleMapTarget(url: GoogleMapsURL.search(place: "", coordinate: coordinate)) }.buttonStyle(.borderless)
+                    }
+                    Button("사진 제거", role: .destructive) { photos.removeAll { $0.id == photo.id } }.buttonStyle(.borderless).disabled(busy)
+                }.padding(16).frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.white, in: RoundedRectangle(cornerRadius: 22))
+            }
+        }
+    }
     private func generate() {
         task = Task {
-            busy = true
+            busy = true; stage = 1
             defer { busy = false }
             do {
                 let result = try await AIService.identify(photos)
@@ -139,12 +190,12 @@ struct ComposerView: View {
     }
     private func writeBlog(_ places: [ConfirmedPlace]) {
         task = Task {
-            busy = true
+            busy = true; stage = 2
             defer { busy = false }
             do {
                 let result = try await AIService.generateVerified(photos: photos, places: places)
                 try Task.checkCancellation()
-                draft = result
+                stage = 3; draft = result
             } catch is CancellationError {} catch { self.error = error.localizedDescription }
         }
     }
@@ -392,5 +443,47 @@ struct RegionBubble: View {
                     name = parts.isEmpty ? "지역명 확인 불가 · 지도에서 확인" : parts.joined(separator: " · ")
                 } catch { if !Task.isCancelled { name = "지역명 조회 실패 · 지도에서 확인" } }
             }
+    }
+}
+
+struct JourneySteps: View {
+    let active: Int
+    private let items = [("photo", "사진 선택"), ("mappin", "장소 확인"), ("doc.text", "글쓰기"), ("checkmark", "완료")]
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            ForEach(0..<4, id: \.self) { index in
+                VStack(spacing: 8) {
+                    Image(systemName: items[index].0).font(.system(size: 16, weight: .semibold))
+                        .frame(width: 38, height: 38).foregroundStyle(index <= active ? .white : .secondary)
+                        .background(index <= active ? Color(red: 0.03, green: 0.32, blue: 0.26) : Color.gray.opacity(0.12), in: Circle())
+                    Text(items[index].1).font(.caption.weight(index == active ? .bold : .regular)).multilineTextAlignment(.center)
+                }.frame(maxWidth: .infinity).accessibilityLabel("\(index + 1)단계 \(items[index].1)\(index == active ? ", 현재 단계" : "")")
+            }
+        }.padding(.vertical, 8)
+    }
+}
+struct FeatureTile: View {
+    let icon: String
+    let title: String
+    let color: Color
+    var body: some View {
+        VStack(spacing: 10) {
+            Image(systemName: icon).font(.title3).foregroundStyle(color).frame(width: 44, height: 44).background(color.opacity(0.1), in: RoundedRectangle(cornerRadius: 16))
+            Text(title).font(.caption.weight(.medium)).foregroundStyle(.primary)
+        }.frame(maxWidth: .infinity).padding(.vertical, 14).background(.white.opacity(0.85), in: RoundedRectangle(cornerRadius: 22))
+    }
+}
+struct TravelPostcards: View {
+    var body: some View {
+        ZStack {
+            postcard("mountain.2.fill", colors: [.cyan, .blue]).rotationEffect(.degrees(10)).offset(x: 8, y: -34)
+            postcard("building.columns.fill", colors: [.orange, .brown]).rotationEffect(.degrees(-9)).offset(x: -6, y: 38)
+        }
+    }
+    private func postcard(_ icon: String, colors: [Color]) -> some View {
+        Image(systemName: icon).font(.system(size: 34)).foregroundStyle(.white)
+            .frame(width: 76, height: 66).background(LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing))
+            .padding(5).background(.white, in: RoundedRectangle(cornerRadius: 10))
+            .shadow(color: .black.opacity(0.08), radius: 10, y: 5)
     }
 }
