@@ -73,3 +73,23 @@ test('Research includes sourced nearby places and survives unavailable nearby da
   assert.equal(data.results[0].sources[0].nearby[0].title,'Segovia Cathedral');
   assert.equal(data.results[0].sources[0].coordinates,undefined);
 });
+
+test('Vision title casing resolves to full canonical landmark history and nearby sources',async t=>{
+  let canonicalCalls=0;
+  t.mock.method(globalThis,'fetch',async url=>{
+    const params=url.searchParams;
+    if(params.get('titles')==='Aqueduct Of Segovia')return Response.json({query:{pages:{'-1':{title:'Aqueduct Of Segovia',missing:''}}}});
+    if(params.get('generator')==='search')return Response.json({query:{pages:{1:{title:'Aqueduct of Segovia',extract:'Short intro.',fullurl:'https://en.wikipedia.org/wiki/Aqueduct_of_Segovia'}}}});
+    if(params.get('titles')==='Aqueduct of Segovia'){
+      canonicalCalls++;
+      return Response.json({query:{pages:{1:{title:'Aqueduct of Segovia',extract:'Full introduction and history.',fullurl:'https://en.wikipedia.org/wiki/Aqueduct_of_Segovia',coordinates:[{lat:40.95,lon:-4.12}]}}}});
+    }
+    assert.equal(params.get('generator'),'geosearch');
+    assert.equal(params.get('exlimit'),'4');
+    return Response.json({query:{pages:{2:{title:'Segovia',extract:'Nearby city.',fullurl:'https://en.wikipedia.org/wiki/Segovia'}}}});
+  });
+  const data=await (await worker.fetch(request('research',{places:['Aqueduct Of Segovia']}),{})).json();
+  assert.equal(canonicalCalls,1);
+  assert.equal(data.results[0].sources[0].summary,'Full introduction and history.');
+  assert.equal(data.results[0].sources[0].nearby[0].title,'Segovia');
+});

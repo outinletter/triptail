@@ -36,6 +36,12 @@ export async function researchPlaces(input){
         response=await fetch(url,{headers,signal:AbortSignal.timeout(15000)});
         if(!response.ok)throw Error('research');
         data=await response.json();if(data.error)throw Error('research');
+        const canonical=Object.values(data.query?.pages||{}).find(page=>page.title?.toLocaleLowerCase()===name.toLocaleLowerCase());
+        if(canonical){
+          url.search=new URLSearchParams({...fields,titles:canonical.title});
+          const exact=await fetch(url,{headers,signal:AbortSignal.timeout(15000)});
+          if(exact.ok){const full=await exact.json();if(!full.error&&Object.values(full.query?.pages||{}).some(page=>page.extract))data=full}
+        }
       }
       const sources=Object.values(data.query?.pages||{}).sort((a,b)=>(a.index||0)-(b.index||0)).filter(page=>page.extract&&typeof page.fullurl==='string'&&/^https:\/\/(en|ko)\.wikipedia\.org\/wiki\//.test(page.fullurl)).map(page=>({title:page.title,url:page.fullurl,summary:page.extract.slice(0,6000),coordinates:page.coordinates?.[0]||null}));
       for(const source of sources){
