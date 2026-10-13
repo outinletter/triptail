@@ -42,7 +42,7 @@ struct DraftEditor: View {
                         draft.updated = Date()
                         if library.save(draft) { dirty = false; notice = "보관함에 저장했습니다. 사진은 저장되지 않으며 글만 보관됩니다." }
                         else { notice = library.error }
-                    }.disabled(draft.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || draft.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty).buttonStyle(.borderedProminent).buttonBorderShape(.capsule).controlSize(.large)
+                    }.disabled(draft.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || draft.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty).buttonStyle(.borderedProminent).tint(Color(red: 0.76, green: 0.88, blue: 0.80)).foregroundStyle(Color(red: 0.08, green: 0.29, blue: 0.23)).buttonBorderShape(.capsule).controlSize(.large)
                 }
                 Section("제목") { TextField("여행 글 제목", text: $draft.title) }
                 Section("본문 · 직접 확인하고 수정하세요") { TextEditor(text: $draft.text).frame(minHeight: 280).accessibilityLabel("여행 글 본문") }
@@ -111,7 +111,7 @@ struct PrivacyView: View {
     var body: some View {
         List {
             Section("사용 방법") {
-                Text("① 여행 사진을 선택합니다.\n② AI 글쓰기를 누르면 장소·촬영 대상을 분석하고 촬영일을 읽습니다. 지도에서 장소와 촬영 대상을 확인한 뒤 자료 조회·블로그 작성을 진행합니다.\n③ 내용을 확인·편집하고 저장 또는 공유합니다.")
+                Text("① 여행 사진을 선택합니다.\n② AI 글쓰기를 누르면 장소·촬영 대상을 분석하고 촬영일을 읽습니다. 장소와 촬영 대상을 자동 분석한 뒤 자료 조회·글쓰기를 바로 진행합니다. 필요하면 사진 카드에서 지도 위치를 지정할 수 있습니다.\n③ 내용을 확인·편집하고 저장 또는 공유합니다.")
                 Text("글은 기기에 저장됩니다. 앱 삭제 시 기기 내 보관함도 삭제됩니다. 기기 백업에는 글이 포함될 수 있습니다. 개별 글은 보관함에서 삭제할 수 있습니다.")
             }
             Section("개인정보 처리방침 · 2026-10-13") {
@@ -154,7 +154,7 @@ struct BlogPreview: View {
                         HStack {
                             if let library {
                                 Button { notice = library.save(draft) ? "보관함에 저장했습니다." : library.error } label: { Label("저장", systemImage: "bookmark") }
-                                    .buttonStyle(.borderedProminent)
+                                    .buttonStyle(.borderedProminent).tint(Color(red: 0.76, green: 0.88, blue: 0.80)).foregroundStyle(Color(red: 0.08, green: 0.29, blue: 0.23))
                             }
                             ShareLink(item: draft.title + "\n\n" + draft.text) { Label("공유", systemImage: "square.and.arrow.up") }.buttonStyle(.bordered)
                             Button { exporting = true } label: { Label("HTML", systemImage: "doc.richtext") }.buttonStyle(.bordered)

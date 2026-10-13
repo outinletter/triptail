@@ -17,6 +17,8 @@ struct ComposerView: View {
     @State private var verification: VerificationSession?
     @State private var queuedPlaces: [ConfirmedPlace]?
     @State private var photoMap: GoogleMapTarget?
+    @State private var manualPhoto: TravelPhoto?
+    @State private var placeOverrides: [UUID: String] = [:]
 
     var body: some View {
         ScrollView {
@@ -41,8 +43,8 @@ struct ComposerView: View {
                 Button { consent = true } label: {
                     Label("AI로 사진 분석·글쓰기", systemImage: "sparkles")
                         .font(.headline).frame(maxWidth: .infinity, minHeight: 32).multilineTextAlignment(.center)
-                }.buttonStyle(.borderedProminent).buttonBorderShape(.capsule).controlSize(.large).disabled(busy || photos.isEmpty)
-                Text(photos.isEmpty ? "사진을 선택하면 시작할 수 있어요" : "장소 확인 후 소개·역사·주변 정보를 작성합니다")
+                }.buttonStyle(.borderedProminent).tint(Color(red: 0.76, green: 0.88, blue: 0.80)).foregroundStyle(Color(red: 0.08, green: 0.29, blue: 0.23)).buttonBorderShape(.capsule).controlSize(.large).disabled(busy || photos.isEmpty)
+                Text(photos.isEmpty ? "사진을 선택하면 시작할 수 있어요" : "사진 분석 후 소개·역사·주변 정보를 바로 작성합니다")
                     .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
             }.padding(.horizontal, 22).padding(.vertical, 12).background(.regularMaterial)
         }
@@ -78,6 +80,11 @@ struct ComposerView: View {
                 } catch is CancellationError {} catch { self.error = error.localizedDescription }
             }
         }
+        .sheet(item: $manualPhoto) { photo in
+            ManualPlaceMap(initial: photo.coordinate) { name, point in
+                if let index = photos.firstIndex(where: { $0.id == photo.id }) { photos[index].coordinate = point; placeOverrides[photo.id] = name }
+            }
+        }
         .sheet(item: $photoMap) { GoogleMapBrowser(url: $0.url) }
         .sheet(item: $draft) { DraftEditor(draft: $0, library: library, previewPhotos: photos) }
         .sheet(item: $verification, onDismiss: {
@@ -89,10 +96,10 @@ struct ComposerView: View {
             Button("취소", role: .cancel) {}
             Button("동의하고 전송") { generate() }
         } message: {
-            Text("선택한 축소 사진 \(photos.count)장을 Cloudflare를 통해 Google Vision에 전송해 장소를 인식하고, 인식된 장소명은 Wikipedia 자료 조회에 사용합니다. 지도 확인을 마치면 축소 사진·촬영일·확인한 장소와 촬영 대상·참고 자료를 DeepSeek에 전송해 블로그를 작성합니다. 지도 확인에는 장소명 또는 인식된 좌표를 Google 지도에 전송하고, 장소 검색에는 검색어와 사진 GPS를 기반으로 한 검색 범위를 Apple 지도에 전송할 수 있습니다. 분석용 사진의 GPS와 원본 메타데이터는 제거합니다. Google 지도에서 촬영 위치를 확인하면 사진에서 읽은 GPS 좌표가 Google에 전달됩니다. 인식 결과는 틀릴 수 있으므로 작성된 내용을 확인해주세요. 외부 업체의 보관·처리 정책은 안내 탭에서 확인할 수 있습니다.")
+            Text("선택한 축소 사진 \(photos.count)장을 Cloudflare를 통해 Google Vision에 전송해 장소를 인식하고, 인식된 장소명은 Wikipedia 자료 조회에 사용합니다. 사진 분석 후 축소 사진·촬영일·확인한 장소와 촬영 대상·참고 자료를 DeepSeek에 전송해 블로그를 작성합니다. 지도 확인에는 장소명 또는 인식된 좌표를 Google 지도에 전송하고, 장소 검색에는 검색어와 사진 GPS를 기반으로 한 검색 범위를 Apple 지도에 전송할 수 있습니다. 분석용 사진의 GPS와 원본 메타데이터는 제거합니다. Google 지도에서 촬영 위치를 확인하면 사진에서 읽은 GPS 좌표가 Google에 전달됩니다. 인식 결과는 틀릴 수 있으므로 작성된 내용을 확인해주세요. 외부 업체의 보관·처리 정책은 안내 탭에서 확인할 수 있습니다.")
         }
         .alert("안내", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) { Button("확인") { error = nil } } message: { Text(error ?? "") }
-        .confirmationDialog("저장하지 않은 입력과 사진을 지울까요?", isPresented: $confirmReset, titleVisibility: .visible) { Button("초기화", role: .destructive) { photos = []; selection = [] } }
+        .confirmationDialog("저장하지 않은 입력과 사진을 지울까요?", isPresented: $confirmReset, titleVisibility: .visible) { Button("초기화", role: .destructive) { photos = []; selection = []; placeOverrides = [:] } }
         #if DEBUG
         .onAppear {
             if ProcessInfo.processInfo.arguments.contains("--photo-retention-test"), photos.isEmpty {
@@ -121,7 +128,7 @@ struct ComposerView: View {
                 PhotosPicker(selection: $selection, maxSelectionCount: 12, matching: .images, preferredItemEncoding: .current) {
                     HStack { Image(systemName: "photo"); Text("사진 선택하기"); Image(systemName: "chevron.right") }
                         .font(.headline).frame(maxWidth: .infinity, minHeight: 30)
-                }.buttonStyle(.borderedProminent).buttonBorderShape(.capsule).controlSize(.large).disabled(busy)
+                }.buttonStyle(.borderedProminent).tint(Color(red: 0.76, green: 0.88, blue: 0.80)).foregroundStyle(Color(red: 0.08, green: 0.29, blue: 0.23)).buttonBorderShape(.capsule).controlSize(.large).disabled(busy)
             }
             HStack(spacing: 10) {
                 FeatureTile(icon: "sparkles", title: "사진 분석", color: .purple)
@@ -166,10 +173,11 @@ struct ComposerView: View {
             ForEach(Array(photos.enumerated()), id: \.element.id) { index, photo in
                 VStack(alignment: .leading, spacing: 12) {
                     Text("사진 \(index + 1)").font(.subheadline.bold())
-                    PhotoMetadataBubbles(photo: photo)
+                    PhotoMetadataBubbles(photo: photo, place: placeOverrides[photo.id] ?? "")
                     if let coordinate = photo.coordinate {
                         Button("촬영 위치를 Google 지도에서 보기") { photoMap = GoogleMapTarget(url: GoogleMapsURL.search(place: "", coordinate: coordinate)) }.buttonStyle(.borderless)
                     }
+                    Button("지도에서 위치 직접 선택", systemImage: "mappin.and.ellipse") { manualPhoto = photo }.buttonStyle(.borderless).disabled(busy)
                     Button("사진 제거", role: .destructive) { photos.removeAll { $0.id == photo.id } }.buttonStyle(.borderless).disabled(busy)
                 }.padding(16).frame(maxWidth: .infinity, alignment: .leading)
                     .background(.white, in: RoundedRectangle(cornerRadius: 22))
@@ -184,7 +192,24 @@ struct ComposerView: View {
                 let result = try await AIService.identify(photos)
                 try Task.checkCancellation()
                 guard result.photos.count == photos.count else { throw AIService.ServiceError.message("사진 분석이 불완전합니다. 다시 시도해주세요.") }
-                verification = VerificationSession(photos: photos, recognized: result.photos)
+                var places: [ConfirmedPlace] = []
+                for (index, photo) in photos.enumerated() {
+                    let recognized = result.photos[index]
+                    let candidate = recognized.candidates.max { $0.score < $1.score }
+                    var place = placeOverrides[photo.id] ?? candidate?.name ?? ""
+                    if place.isEmpty, let point = photo.coordinate {
+                        let marks = try await CLGeocoder().reverseGeocodeLocation(CLLocation(latitude: point.latitude, longitude: point.longitude), preferredLocale: Locale(identifier: "ko_KR"))
+                        place = marks.first?.name ?? marks.first?.locality ?? ""
+                    }
+                    let subject = recognized.objects?.max { $0.score < $1.score }?.name ?? candidate?.name ?? ""
+                    guard PhotoVerificationRules.isKnown(place), PhotoVerificationRules.isKnown(subject) else {
+                        throw AIService.ServiceError.message("사진 \(index + 1)의 장소나 촬영 대상을 인식하지 못했습니다. 사진 카드에서 지도 위치를 지정하거나 다른 사진으로 다시 시도해주세요.")
+                    }
+                    places.append(ConfirmedPlace(id: recognized.id, place: place, detectionScore: candidate?.score, subject: subject, sources: []))
+                }
+                try Task.checkCancellation(); stage = 2
+                let article = try await AIService.generateVerified(photos: photos, places: places)
+                try Task.checkCancellation(); stage = 3; draft = article
             } catch is CancellationError {} catch { self.error = error.localizedDescription }
         }
     }
@@ -248,7 +273,7 @@ struct PhotoVerificationView: View {
                     Button("확인 완료 · 블로그 작성") {
                         onConfirm(rows.map { ConfirmedPlace(id: $0.id, place: $0.place, detectionScore: $0.score, subject: $0.subject, sources: []) })
                         dismiss()
-                    }.buttonStyle(.borderedProminent).disabled(rows.isEmpty || !rows.allSatisfy { $0.isReady })
+                    }.buttonStyle(.borderedProminent).tint(Color(red: 0.76, green: 0.88, blue: 0.80)).foregroundStyle(Color(red: 0.08, green: 0.29, blue: 0.23)).disabled(rows.isEmpty || !rows.allSatisfy { $0.isReady })
                 }
             }
         }
@@ -357,7 +382,7 @@ struct GoogleMapBrowser: View {
                     ContentUnavailableView("Google 지도에서 장소 검색", systemImage: "map", description: Text("아래 버튼을 눌러 Google 지도 앱 또는 Safari에서 검색 결과를 확인하세요."))
                 }
                 Button { openURL(url) } label: { Label("Google 지도 열기", systemImage: "arrow.up.forward.square") }
-                    .buttonStyle(.borderedProminent).controlSize(.large).padding(.bottom)
+                    .buttonStyle(.borderedProminent).tint(Color(red: 0.76, green: 0.88, blue: 0.80)).foregroundStyle(Color(red: 0.08, green: 0.29, blue: 0.23)).controlSize(.large).padding(.bottom)
             }.navigationTitle("위치 확인").navigationBarTitleDisplayMode(.inline)
                 .toolbar { ToolbarItem(placement: .confirmationAction) { Button("완료") { dismiss() } } }
         }
@@ -415,7 +440,7 @@ struct ManualPlaceMap: View {
                     TextField("선택한 위치의 정확한 장소명", text: $name).textFieldStyle(.roundedBorder)
                     Button("이 위치와 장소명 사용") {
                         if let point { onSelect(name.trimmingCharacters(in: .whitespacesAndNewlines), point); dismiss() }
-                    }.buttonStyle(.borderedProminent).disabled(point == nil || !PhotoVerificationRules.isKnown(name))
+                    }.buttonStyle(.borderedProminent).tint(Color(red: 0.76, green: 0.88, blue: 0.80)).foregroundStyle(Color(red: 0.08, green: 0.29, blue: 0.23)).disabled(point == nil || !PhotoVerificationRules.isKnown(name))
                 }.padding()
             }.navigationTitle("지도에서 위치 선택").navigationBarTitleDisplayMode(.inline)
                 .toolbar { ToolbarItem(placement: .cancellationAction) { Button("취소") { dismiss() } } }
@@ -454,8 +479,8 @@ struct JourneySteps: View {
             ForEach(0..<4, id: \.self) { index in
                 VStack(spacing: 8) {
                     Image(systemName: items[index].0).font(.system(size: 16, weight: .semibold))
-                        .frame(width: 38, height: 38).foregroundStyle(index <= active ? .white : .secondary)
-                        .background(index <= active ? Color(red: 0.03, green: 0.32, blue: 0.26) : Color.gray.opacity(0.12), in: Circle())
+                        .frame(width: 38, height: 38).foregroundStyle(index <= active ? Color(red: 0.08, green: 0.29, blue: 0.23) : .secondary)
+                        .background(index <= active ? Color(red: 0.76, green: 0.88, blue: 0.80) : Color.gray.opacity(0.12), in: Circle())
                     Text(items[index].1).font(.caption.weight(index == active ? .bold : .regular)).multilineTextAlignment(.center)
                 }.frame(maxWidth: .infinity).accessibilityLabel("\(index + 1)단계 \(items[index].1)\(index == active ? ", 현재 단계" : "")")
             }
