@@ -113,6 +113,7 @@ struct ComposerView: View {
         .onDisappear { task?.cancel() }
         #if DEBUG
         .onAppear {
+            if ProcessInfo.processInfo.arguments.contains("--map-preview-test") { photoMap = GoogleMapTarget(url: GoogleMapsURL.search(place: "", coordinate: PlaceCoordinate(latitude: 40.947842, longitude: -4.117433))) }
             if ProcessInfo.processInfo.arguments.contains("--verification-test") {
                 let photo = TravelPhoto(jpeg: UIImage(systemName: "photo")?.jpegData(compressionQuality: 0.8) ?? Data(), text: "", captureDate: "2020-03-04")
                 verification = VerificationSession(photos: [photo], recognized: [RecognizedPlace(id: "P001", candidates: [], objects: [], text: "", error: "")])
@@ -284,10 +285,28 @@ struct PhotoVerificationRow: View {
         }
     }
 }
-struct GoogleMapBrowser: UIViewControllerRepresentable {
+struct GoogleMapBrowser: View {
     let url: URL
-    func makeUIViewController(context: Context) -> SFSafariViewController { SFSafariViewController(url: url) }
-    func updateUIViewController(_ controller: SFSafariViewController, context: Context) {}
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 16) {
+                if let point = GoogleMapsURL.coordinate(from: url) {
+                    Map(initialPosition: .region(MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: point.latitude, longitude: point.longitude), span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)))) {
+                        Marker("확인할 위치", coordinate: CLLocationCoordinate2D(latitude: point.latitude, longitude: point.longitude))
+                    }.mapStyle(.standard).accessibilityIdentifier("location-map")
+                    Text(String(format: "%.6f, %.6f", point.latitude, point.longitude)).font(.footnote)
+                    Text("미리보기: Apple 지도 · Google 지도는 아래 버튼으로 열립니다.").font(.caption).foregroundStyle(.secondary)
+                } else {
+                    ContentUnavailableView("Google 지도에서 장소 검색", systemImage: "map", description: Text("아래 버튼을 눌러 Google 지도 앱 또는 Safari에서 검색 결과를 확인하세요."))
+                }
+                Button { openURL(url) } label: { Label("Google 지도 열기", systemImage: "arrow.up.forward.square") }
+                    .buttonStyle(.borderedProminent).controlSize(.large).padding(.bottom)
+            }.navigationTitle("위치 확인").navigationBarTitleDisplayMode(.inline)
+                .toolbar { ToolbarItem(placement: .confirmationAction) { Button("완료") { dismiss() } } }
+        }
+    }
 }
 
 struct PhotoMetadataBubbles: View {

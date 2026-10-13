@@ -44,6 +44,13 @@ final class TripTailUITests: XCTestCase {
         XCTAssertTrue(delete.waitForExistence(timeout: 3)); delete.tap()
         XCTAssertFalse(app.sheets.firstMatch.exists)
     }
+    @MainActor func testMapPreview() throws {
+        let app = XCUIApplication(); app.launchArguments = ["--map-preview-test"]; app.launch()
+        XCTAssertTrue(app.maps.firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["Google 지도 열기"].exists)
+        let capture = XCTAttachment(screenshot: app.screenshot()); capture.name = "Location map preview"; capture.lifetime = .keepAlways; add(capture)
+        app.buttons["완료"].tap()
+    }
     @MainActor func testAutomaticComposerHasNoManualTravelSection() throws {
         let app = XCUIApplication()
         app.launch()

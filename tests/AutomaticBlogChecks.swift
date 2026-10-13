@@ -42,7 +42,8 @@ final class MockProtocol: URLProtocol {
   assert(PhotoGPS.read(["Latitude":91.0,"Longitude":0.0]) == nil)
   assert(PhotoGPS.read([:]) == nil)
   let mapURL = GoogleMapsURL.search(place:"",coordinate:PlaceCoordinate(latitude:37.5,longitude:127.0))
-  assert(URLComponents(url:mapURL,resolvingAgainstBaseURL:false)?.queryItems?.first { $0.name == "query" }?.value == "37.5,127.0")
+  assert(GoogleMapsURL.coordinate(from: mapURL)?.latitude == 37.5)
+  assert(URLComponents(url:mapURL,resolvingAgainstBaseURL:false)?.queryItems?.first { $0.name == "center" }?.value == "37.5,127.0")
   URLProtocol.registerClass(MockProtocol.self)
   let photos = [TravelPhoto(jpeg:Data([1]),text:"",captureDate:"2020-03-04"),TravelPhoto(jpeg:Data([2]),text:"")]
   do { _ = try await AIService.generateVerified(photos: photos, places: []); assertionFailure("Missing confirmation must block writing") } catch {}

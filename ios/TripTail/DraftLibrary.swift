@@ -135,8 +135,17 @@ enum PhotoGPS {
 }
 enum GoogleMapsURL {
     static func search(place: String, coordinate: PlaceCoordinate?) -> URL {
-        var components = URLComponents(string: "https://www.google.com/maps/search/")!
-        components.queryItems = [URLQueryItem(name: "api", value: "1"), URLQueryItem(name: "query", value: coordinate.map { "\($0.latitude),\($0.longitude)" } ?? place)]
+        var components = URLComponents(string: coordinate == nil ? "https://www.google.com/maps/search/" : "https://www.google.com/maps/@")!
+        components.queryItems = [URLQueryItem(name: "api", value: "1")]
+        if let coordinate {
+            components.queryItems! += [URLQueryItem(name: "map_action", value: "map"), URLQueryItem(name: "center", value: "\(coordinate.latitude),\(coordinate.longitude)"), URLQueryItem(name: "zoom", value: "16"), URLQueryItem(name: "basemap", value: "roadmap")]
+        } else { components.queryItems!.append(URLQueryItem(name: "query", value: place)) }
         return components.url!
+    }
+    static func coordinate(from url: URL) -> PlaceCoordinate? {
+        guard let raw = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "center" })?.value else { return nil }
+        let values = raw.split(separator: ",").compactMap { Double($0) }
+        guard values.count == 2 else { return nil }
+        return PhotoGPS.read(["Latitude": values[0], "Longitude": values[1]])
     }
 }
