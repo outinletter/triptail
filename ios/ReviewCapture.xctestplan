@@ -15,7 +15,8 @@
     "screenshotsEnabled": true,
     "systemAttachmentLifetime": "keepAlways",
     "userAttachmentLifetime": "keepAlways",
-    "preferredScreenCaptureFormat": "video"
+    "preferredScreenCaptureFormat": "video",
+    "uiTestingScreenshotsLifetime": "keepAlways"
   },
   "testTargets": [
     {
