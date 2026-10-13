@@ -6,9 +6,9 @@ struct TravelDraft: Codable, Identifiable {
     var title: String
     var text: String
     var updated = Date()
+    var htmlBody: String?
     var html: String {
-        let escape: (String) -> String = { $0.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;").replacingOccurrences(of: ">", with: "&gt;").replacingOccurrences(of: "\"", with: "&quot;").replacingOccurrences(of: "'", with: "&#39;") }
-        return "<!doctype html><html lang=\"ko\"><meta charset=\"utf-8\"><title>\(escape(title))</title><body><h2>\(escape(title))</h2>" + text.components(separatedBy: "\n").filter { !$0.isEmpty }.map { "<p>\(escape($0))</p>" }.joined() + "</body></html>"
+        BlogHTML.document(title: title, body: htmlBody ?? text.components(separatedBy: "\n").filter { !$0.isEmpty }.map { "<p>\(BlogHTML.escape($0))</p>" }.joined())
     }
 }
 
@@ -38,5 +38,35 @@ final class DraftLibrary {
             drafts = next
             return true
         } catch { self.error = "저장 공간을 확인해주세요. 글을 공유해 따로 보관할 수 있습니다."; return false }
+    }
+}
+
+enum BlogHTML {
+    static func escape(_ value: String) -> String {
+        value.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;").replacingOccurrences(of: ">", with: "&gt;").replacingOccurrences(of: "\"", with: "&quot;").replacingOccurrences(of: "'", with: "&#39;")
+    }
+    static func sanitize(_ raw: String) -> String {
+        let allowed: Set<String> = ["h2", "h3", "p", "ul", "ol", "li", "strong", "em", "blockquote", "br"]
+        guard let regex = try? NSRegularExpression(pattern: "<[^>]*>") else { return escape(raw) }
+        let ns = raw as NSString
+        var output = "", cursor = 0
+        for match in regex.matches(in: raw, range: NSRange(location: 0, length: ns.length)) {
+            output += escape(ns.substring(with: NSRange(location: cursor, length: match.range.location - cursor)))
+            let tag = ns.substring(with: match.range)
+            let name = tag.trimmingCharacters(in: CharacterSet(charactersIn: "</> ")).components(separatedBy: .whitespacesAndNewlines).first?.lowercased() ?? ""
+            if allowed.contains(name) { output += "<" + (tag.hasPrefix("</") ? "/" : "") + name + ">" }
+            cursor = NSMaxRange(match.range)
+        }
+        return output + escape(ns.substring(from: cursor))
+    }
+    static func plainText(_ html: String) -> String {
+        html.replacingOccurrences(of: "</p>|</h[23]>|</li>|<br>|</blockquote>", with: "\n\n", options: .regularExpression).replacingOccurrences(of: "<[^>]*>", with: "", options: .regularExpression).replacingOccurrences(of: "&lt;", with: "<").replacingOccurrences(of: "&gt;", with: ">").replacingOccurrences(of: "&quot;", with: "\"").replacingOccurrences(of: "&#39;", with: "'").replacingOccurrences(of: "&amp;", with: "&")
+    }
+    static func document(title: String, body: String) -> String {
+        """
+        <!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:"><title>\(escape(title))</title><style>
+        body{margin:0;background:#f6f7f1;color:#232a25;font:17px/1.9 -apple-system,sans-serif}article{max-width:760px;margin:auto;padding:32px 24px 64px;background:#fff}header{padding:28px 0;border-bottom:1px solid #dde4d8;margin-bottom:32px}small{color:#6b8754;letter-spacing:3px;font-weight:700}h1{font-size:32px;line-height:1.4;color:#315c49}h2{font-size:25px;margin-top:44px}h3{font-size:21px;margin-top:32px;color:#315c49}p{margin:18px 0}blockquote{margin:24px 0;padding:18px 22px;border-left:4px solid #98b777;background:#f5f7ed;border-radius:8px}li{margin:8px 0}img{width:100%;border-radius:18px}figure{margin:28px 0}figcaption{font-size:13px;color:#6b746b}footer{margin-top:40px;font-size:13px;color:#6b746b}
+        </style></head><body><article><header><small>TRIPTAIL · TRAVEL JOURNAL</small><h1>\(escape(title))</h1></header>\(body)<footer>TripTail로 정리한 여행 이야기 · 정보는 방문 전에 다시 확인하세요.</footer></article></body></html>
+        """
     }
 }

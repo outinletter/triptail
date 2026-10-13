@@ -36,4 +36,4 @@ $('confirmPlacesBtn').onclick=async()=>{
     state.ready=true;$('locationStatus').textContent='장소 확인 완료. 관련 자료를 선택한 뒤 블로그 글을 작성하세요.';
   }catch(error){$('locationStatus').textContent=error.message}finally{busy(false)}
 };
-document.addEventListener('triptail-before-generate',()=>{state.sources=(state.research||[]).flatMap((item,i)=>{const selected=$('researchSources').querySelector(`input[name="source${i}"]:checked`),source=item.sources[Number(selected?.value??-1)];return source?[{place:item.place,...source,summary:source.summary.slice(0,2000)}]:[]})});
+document.addEventListener('triptail-before-generate',()=>{state.sources=(state.research||[]).flatMap((item,i)=>{const selected=$('researchSources').querySelector(`input[name="source${i}"]:checked`),source=item.sources[Number(selected?.value??-1)];return source?[{place:item.place,...source,summary:source.summary.slice(0,3000),nearby:(source.nearby||[]).slice(0,2).map(p=>({...p,summary:p.summary.slice(0,500)}))}]:[]})});

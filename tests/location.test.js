@@ -57,3 +57,19 @@ test('Original JPEG GPS handles both TIFF byte orders and rejects malformed file
   }
   assert.equal(await readGps({arrayBuffer:async()=>new ArrayBuffer(3)}),null);
 });
+
+test('Research includes sourced nearby places and survives unavailable nearby data',async t=>{
+  t.mock.method(globalThis,'fetch',async url=>{
+    if(url.searchParams.get('generator')==='geosearch') {
+      assert.equal(url.searchParams.get('ggsradius'),'5000');
+      assert.equal(url.searchParams.get('ggscoord'),'40.95|-4.12');
+      return Response.json({query:{pages:{2:{title:'Segovia Cathedral',extract:'A Gothic cathedral.',fullurl:'https://en.wikipedia.org/wiki/Segovia_Cathedral'},3:{title:'Unsafe',extract:'No',fullurl:'javascript:alert(1)'}}}});
+    }
+    assert.equal(url.searchParams.get('exintro'),null);
+    return Response.json({query:{pages:{1:{title:'Aqueduct of Segovia',extract:'Roman aqueduct with a documented history.',fullurl:'https://en.wikipedia.org/wiki/Aqueduct_of_Segovia',coordinates:[{lat:40.95,lon:-4.12}]}}}});
+  });
+  const data=await (await worker.fetch(request('research',{places:['Aqueduct of Segovia']}),{})).json();
+  assert.equal(data.results[0].sources[0].nearby.length,1);
+  assert.equal(data.results[0].sources[0].nearby[0].title,'Segovia Cathedral');
+  assert.equal(data.results[0].sources[0].coordinates,undefined);
+});

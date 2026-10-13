@@ -14,6 +14,9 @@ struct ComposerView: View {
     @State private var consent = false
     @State private var task: Task<Void, Never>?
     @State private var confirmReset = false
+    @State private var identifyConsent = false
+    @State private var placeReview: PlaceReviewSession?
+    @State private var confirmedPlaces: [ConfirmedPlace] = []
 
     var body: some View {
         Form {
@@ -45,7 +48,7 @@ struct ComposerView: View {
                         }
                         VStack(alignment: .leading) {
                             Text(photo.text.isEmpty ? "읽힌 글자 없음 · 장소를 직접 입력해주세요" : photo.text).font(.footnote).lineLimit(4)
-                            Button("사진 제거", role: .destructive) { photos.removeAll { $0.id == photo.id } }.disabled(busy)
+                            Button("사진 제거", role: .destructive) { photos.removeAll { $0.id == photo.id }; confirmedPlaces = [] }.disabled(busy)
                         }
                     }
                 }
@@ -58,8 +61,10 @@ struct ComposerView: View {
             }.disabled(busy)
             Section("3. 초안 만들기") {
                 Button { makeLocalDraft() } label: { Label("기기 내 초안 만들기", systemImage: "pencil.line") }.disabled(busy || (photos.isEmpty && memo.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty))
-                Button { consent = true } label: { Label("AI로 사진 분석·글쓰기", systemImage: "sparkles") }.disabled(busy || photos.isEmpty)
-                Text("AI는 선택 기능입니다. 전송 전에 대상과 내용을 안내합니다. 사진의 인물이나 민감한 정보가 포함되지 않았는지 확인하세요.").font(.footnote).foregroundStyle(.secondary)
+                Button { identifyConsent = true } label: { Label("Google Vision으로 장소 확인", systemImage: "mappin.and.ellipse") }.disabled(busy || photos.isEmpty)
+                if !confirmedPlaces.isEmpty { Text("확인한 장소: " + confirmedPlaces.map { $0.place }.joined(separator: " · ")).font(.footnote) }
+                Button { consent = true } label: { Label("AI로 사진 분석·글쓰기", systemImage: "sparkles") }.disabled(busy || photos.isEmpty || confirmedPlaces.count != photos.count)
+                Text("Google Vision으로 장소를 찾고 확인한 뒤, 관련 자료를 선택하면 소개·역사·주변 정보를 담은 블로그 글을 만듭니다. AI는 선택 기능입니다. 사진의 인물이나 민감한 정보가 포함되지 않았는지 확인하세요.").font(.footnote).foregroundStyle(.secondary)
                 if busy { ProgressView("사진 처리 또는 AI 응답을 기다리는 중…"); Button("취소") { task?.cancel() } }
             }
             if !photos.isEmpty || !memo.isEmpty { Section { Button("입력 초기화", role: .destructive) { confirmReset = true }.disabled(busy) } }
@@ -81,19 +86,28 @@ struct ComposerView: View {
                         loaded.append(try await PhotoService.prepare(data))
                     }
                     try Task.checkCancellation()
-                    if !items.isEmpty { photos = loaded }
+                    if !items.isEmpty { photos = loaded; confirmedPlaces = [] }
                 } catch is CancellationError {} catch { self.error = error.localizedDescription }
             }
         }
-        .sheet(item: $draft) { DraftEditor(draft: $0, library: library) }
+        .sheet(item: $draft) { DraftEditor(draft: $0, library: library, previewPhotos: photos) }
+        .sheet(item: $placeReview) { session in
+            PlaceReviewView(session: session) { confirmedPlaces = $0 }
+        }
+        .alert("Google Vision 장소 인식 동의", isPresented: $identifyConsent) {
+            Button("취소", role: .cancel) {}
+            Button("동의하고 장소 찾기") { identifyPlaces() }
+        } message: {
+            Text("선택한 축소 사진을 Cloudflare를 통해 Google Vision에 전송해 랜드마크와 글자를 인식합니다. GPS는 전송하지 않습니다. 장소 확인 화면에서 자료 조회 시 확인한 장소명을 Wikipedia에 전송합니다. 인식 점수는 정확성을 보장하지 않으므로 결과를 확인해주세요.")
+        }
         .alert("외부 AI 전송 동의", isPresented: $consent) {
             Button("취소", role: .cancel) {}
             Button("동의하고 전송") { generate() }
         } message: {
-            Text("선택한 사진 \(photos.count)장(축소 JPEG), 여행지, 방문 날짜, 메모가 Cloudflare의 TripTail 서버를 통해 DeepSeek에 전달되어 분석됩니다. GPS 메타데이터는 제거됩니다. 외부 업체의 보관·처리 정책이 적용되며 이미 전송한 데이터는 앱에서 회수할 수 없습니다. 안내 탭의 개인정보 처리방침을 확인하세요. 동의하지 않아도 기기 내 초안을 사용할 수 있습니다.")
+            Text("선택한 사진 \(photos.count)장(축소 JPEG), 확인한 장소명, 선택한 소개·역사·주변 참고 자료, 방문 날짜, 메모가 Cloudflare의 TripTail 서버를 통해 DeepSeek에 전달되어 분석됩니다. GPS 메타데이터는 제거됩니다. 외부 업체의 보관·처리 정책이 적용되며 이미 전송한 데이터는 앱에서 회수할 수 없습니다. 안내 탭의 개인정보 처리방침을 확인하세요. 동의하지 않아도 기기 내 초안을 사용할 수 있습니다.")
         }
         .alert("안내", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) { Button("확인") { error = nil } } message: { Text(error ?? "") }
-        .confirmationDialog("저장하지 않은 입력과 사진을 지울까요?", isPresented: $confirmReset, titleVisibility: .visible) { Button("초기화", role: .destructive) { photos = []; selection = []; place = ""; memo = "" } }
+        .confirmationDialog("저장하지 않은 입력과 사진을 지울까요?", isPresented: $confirmReset, titleVisibility: .visible) { Button("초기화", role: .destructive) { photos = []; selection = []; confirmedPlaces = []; place = ""; memo = "" } }
         .onDisappear { task?.cancel() }
     }
     private func makeLocalDraft() {
@@ -103,15 +117,115 @@ struct ComposerView: View {
         }.joined(separator: "\n\n")
         draft = TravelDraft(title: title, text: date.formatted(date: .abbreviated, time: .omitted) + "\n\n" + memo + "\n\n" + observations)
     }
+    private func identifyPlaces() {
+        task = Task {
+            busy = true
+            confirmedPlaces = []
+            defer { busy = false }
+            do {
+                let result = try await AIService.identify(photos)
+                try Task.checkCancellation()
+                guard result.photos.count == photos.count else { throw AIService.ServiceError.message("장소 결과가 불완전합니다. 다시 시도해주세요.") }
+                placeReview = PlaceReviewSession(photos: result.photos, fallback: place)
+            } catch is CancellationError {} catch { self.error = error.localizedDescription }
+        }
+    }
     private func generate() {
         task = Task {
             busy = true
             defer { busy = false }
             do {
-                let text = try await AIService.generate(photos: photos, place: place, memo: memo, date: date.formatted(date: .numeric, time: .omitted))
+                let generated = try await AIService.generate(photos: photos, places: confirmedPlaces, memo: memo, date: date.formatted(date: .numeric, time: .omitted))
                 try Task.checkCancellation()
-                draft = TravelDraft(title: place.isEmpty ? "여행 이야기" : place, text: text)
+                draft = generated
             } catch is CancellationError {} catch { self.error = error.localizedDescription }
+        }
+    }
+}
+
+struct PlaceReviewSession: Identifiable {
+    let id = UUID()
+    let photos: [RecognizedPlace]
+    let fallback: String
+}
+struct PlaceReviewView: View {
+    let session: PlaceReviewSession
+    let onConfirm: ([ConfirmedPlace]) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var names: [String] = []
+    @State private var research: [ResearchItem] = []
+    @State private var selected: [String: Int] = [:]
+    @State private var busy = false
+    @State private var error: String?
+    @State private var researched = false
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    Text("Google Vision 결과를 실제 사진과 비교해 확인하세요. 다른 장소라면 이름을 수정해주세요. 확인한 장소는 글에서 다시 추정하지 않습니다.")
+                }
+                ForEach(Array(session.photos.enumerated()), id: \.offset) { index, photo in
+                    Section("사진 \(index + 1)") {
+                        ForEach(photo.candidates, id: \.self) { candidate in
+                            Button { names[index] = candidate.name; invalidate() } label: {
+                                Text("\(candidate.name) · 인식 점수 \(Int(candidate.score * 100))%")
+                            }
+                        }
+                        if photo.candidates.isEmpty { Text("인식된 장소가 없습니다. 실제 장소명을 직접 입력해주세요.") }
+                        if !photo.error.isEmpty { Text(photo.error) }
+                        if names.indices.contains(index) {
+                            TextField("확인한 장소명", text: $names[index]).onChange(of: names[index]) { invalidate() }
+                        }
+                    }
+                }
+                Section {
+                    Button("장소 확인 · 소개와 역사 자료 조회") { loadResearch() }
+                        .disabled(busy || names.count != session.photos.count || names.contains { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty })
+                    Text("확인한 장소명을 Wikipedia에 전송합니다. 검색된 자료가 같은 장소인지 확인해 선택하세요.").font(.footnote).foregroundStyle(.secondary)
+                    if busy { ProgressView("소개·역사·주변 자료 조회 중…") }
+                    if let error { Text(error).foregroundStyle(.red) }
+                }
+                ForEach(Array(research.enumerated()), id: \.offset) { _, item in
+                    Section(item.place) {
+                        Picker("글에 사용할 자료", selection: Binding(get: { selected[item.place] ?? -1 }, set: { selected[item.place] = $0 })) {
+                            Text("자료 없이 작성").tag(-1)
+                            ForEach(Array(item.sources.enumerated()), id: \.offset) { index, source in Text(source.title).tag(index) }
+                        }
+                        if let index = selected[item.place], item.sources.indices.contains(index) {
+                            let source = item.sources[index]
+                            Text(source.summary).font(.footnote)
+                            Link("출처 확인", destination: URL(string: source.url)!)
+                            ForEach(source.nearby ?? [], id: \.url) { nearby in Text("주변: \(nearby.title)\n\(nearby.summary)").font(.footnote) }
+                        }
+                        if !item.error.isEmpty { Text(item.error).font(.footnote) }
+                    }
+                }
+                if researched {
+                    Section { Button("확인 완료 · 블로그 작성으로") {
+                        onConfirm(session.photos.enumerated().map { index, photo in
+                            let name = names[index].trimmingCharacters(in: .whitespacesAndNewlines)
+                            let sources = research.first { $0.place == name }?.sources ?? []
+                            let choice = selected[name] ?? -1
+                            return ConfirmedPlace(id: photo.id, place: name, sources: sources.indices.contains(choice) ? [sources[choice]] : [])
+                        })
+                        dismiss()
+                    } }
+                }
+            }.disabled(busy)
+            .navigationTitle("장소 확인 및 자료")
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("닫기") { dismiss() } } }
+            .onAppear { if names.isEmpty { names = session.photos.map { $0.candidates.first?.name ?? session.fallback } } }
+        }
+    }
+    private func invalidate() { researched = false; research = []; selected = [:] }
+    private func loadResearch() {
+        Task {
+            busy = true; error = nil
+            defer { busy = false }
+            do {
+                let result = try await AIService.research(names.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) })
+                research = result.results; researched = true
+            } catch { self.error = error.localizedDescription }
         }
     }
 }

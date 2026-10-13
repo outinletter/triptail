@@ -28,6 +28,23 @@ final class TripTailUITests: XCTestCase {
         app.swipeUp()
         capture("05-privacy-policy")
     }
+    @MainActor func testStyledBlogPreview() throws {
+        let app = XCUIApplication()
+        app.launch()
+        app.buttons["sample"].tap()
+        XCTAssertTrue(app.navigationBars["여행 글 편집"].waitForExistence(timeout: 5))
+        if !app.buttons["꾸며진 블로그 미리보기"].isHittable { app.swipeUp() }
+        app.buttons["꾸며진 블로그 미리보기"].tap()
+        XCTAssertTrue(app.navigationBars["여행 블로그"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.webViews.staticTexts["교토의 오후 · 예시"].waitForExistence(timeout: 5))
+        let proof = XCTAttachment(screenshot: app.screenshot())
+        proof.name = "TripTail styled blog preview"
+        proof.lifetime = .keepAlways
+        add(proof)
+        app.buttons["글 편집"].tap()
+        XCTAssertTrue(app.navigationBars["여행 글 편집"].waitForExistence(timeout: 5))
+    }
     @MainActor func testSampleSaveReopenAndDelete() throws {
         let app = XCUIApplication()
         app.launch()

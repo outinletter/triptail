@@ -40,3 +40,9 @@ Worker에 `GOOGLE_VISION_API_KEY`를 Secret으로 등록하고 Google Cloud에�
 검증: `node --test tests/*.test.js`, `npm run build`. iOS UI 테스트는 `TripTail` 스킴의 Test를 실행하세요. 빌드 제품과 개발 인증서/프로비저닝 파일은 저장소에 올리지 않습니다.
 
 심사 검토 결과와 제출 전 운영 확인 사항은 `APP_STORE_REVIEW.md`를 참고하세요. 지원 및 개인정보 삭제 요청: `outintube@gmail.com`.
+
+## 아이폰의 장소 확인 및 블로그 화면
+
+Google Vision으로 장소 확인 → 사진별 실제 장소명 확인·수정 → Wikipedia 소개·역사 자료 선택 → AI 블로그 작성 순서로 진행합니다. 좌표가 있는 자료에는 5km 범위의 주변 문서도 조회합니다. Google Vision 인식 점수는 정확성을 보장하지 않으며 확인한 장소명은 AI가 다시 추정하지 않습니다.
+
+AI가 작성한 소제목·문단·인용문 HTML은 안전한 태그만 유지하고 앱에서 밝은 여행 블로그 스타일로 보여줍니다. 선택 사진은 현재 미리보기에서만 표시하며 저장하거나 HTML 파일로 내보내는 자료에는 사진 자리 표시와 글이 포함됩니다. 글을 직접 수정하면 수정한 본문으로 미리보기와 HTML을 다시 구성합니다. 기존 저장 글과 호환됩니다.
