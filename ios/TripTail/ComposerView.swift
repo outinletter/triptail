@@ -66,7 +66,17 @@ struct ComposerView: View {
         }
         .scrollContentBackground(.hidden)
         .background(Color(red: 0.965, green: 0.970, blue: 0.948))
-        .navigationTitle("TripTail")
+        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                HStack(spacing: 10) {
+                    Image("BrandIcon").resizable().scaledToFit().frame(width: 36, height: 36)
+                        .clipShape(RoundedRectangle(cornerRadius: 9)).accessibilityHidden(true)
+                    Text("TripTail").font(.title2.bold())
+                }.accessibilityElement(children: .combine).accessibilityLabel("TripTail")
+            }
+        }
         .onChange(of: selection) { _, items in
             guard !items.isEmpty else { return }
             task = Task {
