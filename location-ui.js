@@ -1,11 +1,12 @@
-import {state,$,dataUrl,escapeHtml} from './app.js';
+import {state,$,dataUrl,escapeHtml,consentTo} from './app.js';
 import {readGps} from './photo-gps.js';
 
-async function post(path,body){const response=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const result=await response.json();if(!response.ok)throw Error(result.error||'요청에 실패했습니다.');return result}
+async function post(path,body){const response=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},signal:AbortSignal.timeout(90000),body:JSON.stringify(body)});const result=await response.json();if(!response.ok)throw Error(result.error||'요청에 실패했습니다.');return result}
 function busy(value){state.busy=value;for(const id of ['identifyBtn','confirmPlacesBtn','deepSeekBtn','fileInput','demoBtn'])$(id).disabled=value;for(const el of $('locationReview').querySelectorAll('input'))el.disabled=value}
 function gpsDistance(gps,coordinates){if(!gps||!coordinates)return null;const rad=n=>n*Math.PI/180,a=rad(coordinates.latitude-gps.latitude),b=rad(coordinates.longitude-gps.longitude);return 6371*2*Math.asin(Math.min(1,Math.sqrt(Math.sin(a/2)**2+Math.cos(rad(gps.latitude))*Math.cos(rad(coordinates.latitude))*Math.sin(b/2)**2)))}
 $('identifyBtn').onclick=async()=>{
   if(state.busy)return;if(!state.photos.length){alert('사진을 먼저 올려주세요.');return}
+  if(!consentTo('Google Vision · Cloudflare','축소 사진을 장소 및 글자 인식에 사용합니다. 원본 GPS는 전송하지 않습니다.'))return;
   busy(true);state.ready=false;state.locations=null;state.sources=[];$('researchSources').innerHTML='';$('results').classList.add('hidden');$('preview').classList.add('hidden');$('locationStatus').textContent='장소 후보를 찾고 있습니다…';
   try{
     const images=[];for(const photo of state.photos){photo.gps=await readGps(photo.file);images.push(await dataUrl(photo.file))}
@@ -25,6 +26,7 @@ $('confirmPlacesBtn').onclick=async()=>{
   if(state.busy||!state.locations)return;
   const locations=state.locations.map((photo,i)=>({...photo,place:$(`unknownPlace${i}`).checked?'미확인':$(`confirmedPlace${i}`).value.trim(),confirmed:!$(`unknownPlace${i}`).checked}));
   if(locations.some(photo=>!photo.place)){alert('각 사진의 장소를 입력하거나 미확인을 선택하세요.');return}
+  if(locations.some(p=>p.confirmed)&&!consentTo('Wikipedia · Cloudflare','확인한 장소명을 배경 자료 검색에 사용합니다. 사진은 전송하지 않습니다.'))return;
   busy(true);state.ready=false;$('locationStatus').textContent='확인한 장소의 배경 자료를 조회하고 있습니다…';
   try{
     const names=locations.filter(photo=>photo.confirmed).map(photo=>photo.place);

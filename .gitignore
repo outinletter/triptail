@@ -3,3 +3,10 @@ dist/
 .wrangler/
 .dev.vars*
 .env*
+
+# Xcode user state and build products
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.xcarchive
+.DS_Store

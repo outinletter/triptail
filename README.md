@@ -25,3 +25,18 @@ Worker에 `GOOGLE_VISION_API_KEY`를 Secret으로 등록하고 Google Cloud에�
 `npm run deploy`로 `triptail` Worker와 화면 파일을 배포합니다. 기존 Cloudflare Git 빌드의 `npx wrangler deploy` 명령도 그대로 사용할 수 있습니다. Wrangler가 화면 파일만 `dist/`에 준비하며 `/api/*`는 `worker.js`에서 처리합니다. 로컬 Node 서버는 그대로 유지합니다.
 
 배포 후 Settings → Runtime variables and secrets에서 이름 `DEEPSEEK_API_KEY`, 유형 Secret으로 키를 등록하세요. 빌드 변수에 등록하지 마세요. 키는 코드나 배포 설정에 기록하지 않습니다. Secret이 없고 화면에서도 키를 입력하지 않으면 API는 안내 메시지와 HTTP 503을 반환합니다. 키 등록 전에는 실제 AI 분석을 완료할 수 없습니다.
+
+## 네이티브 iOS 앱
+
+`ios/TripTail.xcodeproj`를 Xcode에서 열고 `TripTail` 스킴을 선택하세요. iOS 17 이상, iPhone/iPad를 지원합니다. 번들 ID는 `com.addvalue.triptail`이며 개발 팀은 기존 앱과 같은 `A7QB8PT33N`으로 설정되어 있습니다. 다른 팀에서는 Signing 설정을 변경하세요.
+
+- 시스템 사진 선택기: JPEG/PNG/HEIC 등 기기가 읽을 수 있는 사진, 최대 12장·장당 20MB
+- 원본을 1600px 이하 JPEG로 재인코딩해 EXIF/GPS 제거, Apple Vision 글자 인식은 기기 내 실행
+- 사진 없이 메모만으로도 오프라인 초안 작성, 편집, 기기 내 저장/삭제
+- 실제 샘플 글 체험, 미저장 글 닫기 확인, 공유 시트, 안전한 HTML 파일 내보내기
+- AI 선택 시 매번 전송 동의, 기존 HTTPS Worker 사용, 앱에 API 키 포함하지 않음
+- 사진은 보관함에 저장하지 않으며 글만 보호된 기기 파일에 저장
+
+검증: `node --test tests/*.test.js`, `npm run build`. iOS UI 테스트는 `TripTail` 스킴의 Test를 실행하세요. 빌드 제품과 개발 인증서/프로비저닝 파일은 저장소에 올리지 않습니다.
+
+심사 검토 결과와 제출 전 운영 확인 사항은 `APP_STORE_REVIEW.md`를 참고하세요. 지원 및 개인정보 삭제 요청: `outintube@gmail.com`.

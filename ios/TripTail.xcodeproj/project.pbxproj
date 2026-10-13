@@ -1,0 +1,44 @@
+// !$*UTF8*$!
+{archiveVersion = 1; classes = {}; objectVersion = 56; objects = {
+000000000000000000000001 = {isa = PBXProject; attributes = {LastUpgradeCheck = 2630; TargetAttributes = {000000000000000000000002 = {CreatedOnToolsVersion = 26.3; ProvisioningStyle = Automatic;};};}; buildConfigurationList = 000000000000000000000020; compatibilityVersion = "Xcode 14.0"; developmentRegion = ko; knownRegions = (ko,en,Base); mainGroup = 000000000000000000000003; productRefGroup = 000000000000000000000004; projectDirPath = ""; projectRoot = ""; targets = (000000000000000000000002,00000000000000000000012C);};
+000000000000000000000002 = {isa = PBXNativeTarget; buildConfigurationList = 000000000000000000000021; buildPhases = (000000000000000000000010,000000000000000000000011,000000000000000000000012); buildRules = (); dependencies = (); name = TripTail; productName = TripTail; productReference = 000000000000000000000005; productType = "com.apple.product-type.application";};
+000000000000000000000003 = {isa = PBXGroup; children = (00000000000000000000012D,000000000000000000000064,000000000000000000000065,000000000000000000000066,000000000000000000000067,000000000000000000000006,000000000000000000000007,000000000000000000000008,000000000000000000000009,000000000000000000000004); sourceTree = "<group>";};
+000000000000000000000004 = {isa = PBXGroup; children = (000000000000000000000005,00000000000000000000012E); name = Products; sourceTree = "<group>";};
+000000000000000000000005 = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TripTail.app; sourceTree = BUILT_PRODUCTS_DIR;};
+000000000000000000000006 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripTail/TripTailApp.swift; sourceTree = "<group>";};
+000000000000000000000007 = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = TripTail/Assets.xcassets; sourceTree = "<group>";};
+000000000000000000000008 = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = TripTail/Info.plist; sourceTree = "<group>";};
+000000000000000000000009 = {isa = PBXFileReference; lastKnownFileType = text.xml; path = TripTail/PrivacyInfo.xcprivacy; sourceTree = "<group>";};
+00000000000000000000000A = {isa = PBXBuildFile; fileRef = 000000000000000000000006;};
+00000000000000000000000B = {isa = PBXBuildFile; fileRef = 000000000000000000000007;};
+00000000000000000000000C = {isa = PBXBuildFile; fileRef = 000000000000000000000009;};
+000000000000000000000010 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (00000000000000000000000A,0000000000000000000000C8,0000000000000000000000C9,0000000000000000000000CA,0000000000000000000000CB); runOnlyForDeploymentPostprocessing = 0;};
+000000000000000000000011 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0;};
+000000000000000000000012 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (00000000000000000000000B,00000000000000000000000C); runOnlyForDeploymentPostprocessing = 0;};
+000000000000000000000020 = {isa = XCConfigurationList; buildConfigurations = (000000000000000000000022,000000000000000000000023); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release;};
+000000000000000000000021 = {isa = XCConfigurationList; buildConfigurations = (000000000000000000000024,000000000000000000000025); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release;};
+000000000000000000000022 = {isa = XCBuildConfiguration; buildSettings = {CLANG_ENABLE_MODULES = YES; SDKROOT = iphoneos; IPHONEOS_DEPLOYMENT_TARGET = 17.0; SWIFT_VERSION = 5.0; DEBUG_INFORMATION_FORMAT = dwarf; SWIFT_OPTIMIZATION_LEVEL = "-Onone";}; name = Debug;};
+000000000000000000000023 = {isa = XCBuildConfiguration; buildSettings = {CLANG_ENABLE_MODULES = YES; SDKROOT = iphoneos; IPHONEOS_DEPLOYMENT_TARGET = 17.0; SWIFT_VERSION = 5.0; DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym"; SWIFT_OPTIMIZATION_LEVEL = "-O";}; name = Release;};
+000000000000000000000024 = {isa = XCBuildConfiguration; buildSettings = {ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; CODE_SIGN_STYLE = Automatic; DEVELOPMENT_TEAM = A7QB8PT33N; PRODUCT_BUNDLE_IDENTIFIER = com.addvalue.triptail; PRODUCT_NAME = "$(TARGET_NAME)"; INFOPLIST_FILE = TripTail/Info.plist; GENERATE_INFOPLIST_FILE = NO; TARGETED_DEVICE_FAMILY = "1,2"; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; SUPPORTS_MACCATALYST = NO; SWIFT_VERSION = 5.0; IPHONEOS_DEPLOYMENT_TARGET = 17.0; ENABLE_USER_SCRIPT_SANDBOXING = NO; LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";}; name = Debug;};
+000000000000000000000025 = {isa = XCBuildConfiguration; buildSettings = {GCC_GENERATE_DEBUGGING_SYMBOLS = YES; DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym"; ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; CODE_SIGN_STYLE = Automatic; DEVELOPMENT_TEAM = A7QB8PT33N; PRODUCT_BUNDLE_IDENTIFIER = com.addvalue.triptail; PRODUCT_NAME = "$(TARGET_NAME)"; INFOPLIST_FILE = TripTail/Info.plist; GENERATE_INFOPLIST_FILE = NO; TARGETED_DEVICE_FAMILY = "1,2"; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; SUPPORTS_MACCATALYST = NO; SWIFT_VERSION = 5.0; IPHONEOS_DEPLOYMENT_TARGET = 17.0; ENABLE_USER_SCRIPT_SANDBOXING = NO; LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";}; name = Release;};
+000000000000000000000064 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripTail/DraftLibrary.swift; sourceTree = "<group>";};
+0000000000000000000000C8 = {isa = PBXBuildFile; fileRef = 000000000000000000000064;};
+000000000000000000000065 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripTail/PhotoService.swift; sourceTree = "<group>";};
+0000000000000000000000C9 = {isa = PBXBuildFile; fileRef = 000000000000000000000065;};
+000000000000000000000066 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripTail/ComposerView.swift; sourceTree = "<group>";};
+0000000000000000000000CA = {isa = PBXBuildFile; fileRef = 000000000000000000000066;};
+000000000000000000000067 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripTail/LibraryView.swift; sourceTree = "<group>";};
+0000000000000000000000CB = {isa = PBXBuildFile; fileRef = 000000000000000000000067;};
+
+00000000000000000000012C = {isa = PBXNativeTarget; buildConfigurationList = 000000000000000000000132; buildPhases = (000000000000000000000131); buildRules = (); dependencies = (000000000000000000000135); name = TripTailUITests; productName = TripTailUITests; productReference = 00000000000000000000012E; productType = "com.apple.product-type.bundle.ui-testing";};
+00000000000000000000012D = {isa = PBXGroup; children = (00000000000000000000012F); path = TripTailUITests; sourceTree = "<group>";};
+00000000000000000000012E = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; path = TripTailUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR;};
+00000000000000000000012F = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripTailUITests.swift; sourceTree = "<group>";};
+000000000000000000000130 = {isa = PBXBuildFile; fileRef = 00000000000000000000012F;};
+000000000000000000000131 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (000000000000000000000130); runOnlyForDeploymentPostprocessing = 0;};
+000000000000000000000132 = {isa = XCConfigurationList; buildConfigurations = (000000000000000000000133,000000000000000000000134); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release;};
+000000000000000000000135 = {isa = PBXTargetDependency; target = 000000000000000000000002; targetProxy = 000000000000000000000136;};
+000000000000000000000136 = {isa = PBXContainerItemProxy; containerPortal = 000000000000000000000001; proxyType = 1; remoteGlobalIDString = 000000000000000000000002; remoteInfo = TripTail;};
+000000000000000000000133 = {isa = XCBuildConfiguration; buildSettings = {GENERATE_INFOPLIST_FILE = YES; PRODUCT_BUNDLE_IDENTIFIER = com.addvalue.triptail.uitests; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_VERSION = 5.0; IPHONEOS_DEPLOYMENT_TARGET = 17.0; TARGETED_DEVICE_FAMILY = "1,2"; TEST_TARGET_NAME = TripTail; CODE_SIGN_STYLE = Automatic; DEVELOPMENT_TEAM = A7QB8PT33N;}; name = Debug;};
+000000000000000000000134 = {isa = XCBuildConfiguration; buildSettings = {GENERATE_INFOPLIST_FILE = YES; PRODUCT_BUNDLE_IDENTIFIER = com.addvalue.triptail.uitests; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_VERSION = 5.0; IPHONEOS_DEPLOYMENT_TARGET = 17.0; TARGETED_DEVICE_FAMILY = "1,2"; TEST_TARGET_NAME = TripTail; CODE_SIGN_STYLE = Automatic; DEVELOPMENT_TEAM = A7QB8PT33N;}; name = Release;};
+}; rootObject = 000000000000000000000001;}
