@@ -24,7 +24,7 @@ test('Vision key, validation, candidates, no matches, and per-photo errors',asyn
 test('Research accepts only bounded place names, filters sources, and preserves missing results',async t=>{
   assert.equal((await worker.fetch(request('research',{places:[null]}),{})).status,400);
   t.mock.method(globalThis,'fetch',async url=>{
-    if(url.searchParams.get('gsrsearch')==='Unknown')return Response.json({});
+    if((url.searchParams.get('gsrsearch')||url.searchParams.get('titles'))==='Unknown')return Response.json({});
     return Response.json({query:{pages:{1:{title:'Aqueduct of Segovia',extract:'Roman aqueduct in Segovia.',fullurl:'https://en.wikipedia.org/wiki/Aqueduct_of_Segovia',index:1},2:{title:'Unsafe',extract:'Bad',fullurl:'javascript:alert(1)',index:2}}}});
   });
   const response=await worker.fetch(request('research',{places:['Aqueduct of Segovia','Unknown','Aqueduct of Segovia']}),{});

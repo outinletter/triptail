@@ -25,10 +25,18 @@ export async function researchPlaces(input){
     try{
       const language=/[가-힣]/.test(name)?'ko':'en';
       const url=new URL(`https://${language}.wikipedia.org/w/api.php`);
-      url.search=new URLSearchParams({action:'query',generator:'search',gsrsearch:name,gsrlimit:'3',prop:'extracts|info|coordinates',explaintext:'1',exchars:'6000',colimit:'1',inprop:'url',format:'json'});
-      const response=await fetch(url,{headers:{'User-Agent':'TripTail/1.0 (https://triptail.outinletter.workers.dev)'},signal:AbortSignal.timeout(15000)});
+      const headers={'User-Agent':'TripTail/1.0 (https://triptail.outinletter.workers.dev)'};
+      const fields={action:'query',prop:'extracts|info|coordinates',explaintext:'1',colimit:'1',inprop:'url',redirects:'1',format:'json'};
+      url.search=new URLSearchParams({...fields,titles:name});
+      let response=await fetch(url,{headers,signal:AbortSignal.timeout(15000)});
       if(!response.ok)throw Error('research');
-      const data=await response.json();if(data.error)throw Error('research');
+      let data=await response.json();if(data.error)throw Error('research');
+      if(!Object.values(data.query?.pages||{}).some(page=>page.extract)){
+        url.search=new URLSearchParams({...fields,generator:'search',gsrsearch:name,gsrlimit:'3',exintro:'1',exlimit:'3',exchars:'1200'});
+        response=await fetch(url,{headers,signal:AbortSignal.timeout(15000)});
+        if(!response.ok)throw Error('research');
+        data=await response.json();if(data.error)throw Error('research');
+      }
       const sources=Object.values(data.query?.pages||{}).sort((a,b)=>(a.index||0)-(b.index||0)).filter(page=>page.extract&&typeof page.fullurl==='string'&&/^https:\/\/(en|ko)\.wikipedia\.org\/wiki\//.test(page.fullurl)).map(page=>({title:page.title,url:page.fullurl,summary:page.extract.slice(0,6000),coordinates:page.coordinates?.[0]||null}));
       for(const source of sources){
         source.nearby=[];
@@ -36,7 +44,7 @@ export async function researchPlaces(input){
         if(!point||!Number.isFinite(point.lat)||!Number.isFinite(point.lon))continue;
         try{
           const near=new URL(`https://${language}.wikipedia.org/w/api.php`);
-          near.search=new URLSearchParams({action:'query',generator:'geosearch',ggscoord:`${point.lat}|${point.lon}`,ggsradius:'5000',ggslimit:'4',prop:'extracts|info',exintro:'1',explaintext:'1',exchars:'1200',inprop:'url',format:'json'});
+          near.search=new URLSearchParams({action:'query',generator:'geosearch',ggscoord:`${point.lat}|${point.lon}`,ggsradius:'5000',ggslimit:'4',prop:'extracts|info',exintro:'1',explaintext:'1',exchars:'1200',exlimit:'4',inprop:'url',format:'json'});
           const response=await fetch(near,{headers:{'User-Agent':'TripTail/1.0 (https://triptail.outinletter.workers.dev)'},signal:AbortSignal.timeout(10000)});
           if(response.ok){const data=await response.json();source.nearby=Object.values(data.query?.pages||{}).filter(p=>p.title!==source.title&&p.extract&&typeof p.fullurl==='string'&&/^https:\/\/(en|ko)\.wikipedia\.org\/wiki\//.test(p.fullurl)).slice(0,3).map(p=>({title:p.title,url:p.fullurl,summary:p.extract.slice(0,1200)}))}
         }catch{/* Nearby data is optional; never invent unavailable facts. */}
