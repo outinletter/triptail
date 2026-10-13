@@ -49,9 +49,9 @@ struct ComposerView: View {
                             Text(photo.text.isEmpty ? "장소는 AI 글쓰기에서 자동으로 분석합니다." : photo.text).font(.footnote).lineLimit(4)
                             PhotoMetadataBubbles(photo: photo)
                             if let coordinate = photo.coordinate {
-                                Button("촬영 위치를 Google 지도에서 보기") { photoMap = GoogleMapTarget(url: GoogleMapsURL.search(place: "", coordinate: coordinate)) }
+                                Button("촬영 위치를 Google 지도에서 보기") { photoMap = GoogleMapTarget(url: GoogleMapsURL.search(place: "", coordinate: coordinate)) }.buttonStyle(.borderless)
                             }
-                            Button("사진 제거", role: .destructive) { photos.removeAll { $0.id == photo.id } }.disabled(busy)
+                            Button("사진 제거", role: .destructive) { photos.removeAll { $0.id == photo.id } }.buttonStyle(.borderless).disabled(busy)
                         }
                     }
                 }
