@@ -47,3 +47,7 @@ TripTail은 사진과 사용자 메모로 여행 글을 만드는 앱입니다. 
 - [SwiftUI PhotosPicker](https://developer.apple.com/documentation/photokit/bringing-photos-picker-to-your-swiftui-app)
 - [필수 사유 API](https://developer.apple.com/documentation/bundleresources/app-privacy-configuration/nsprivacyaccessedapitypes/nsprivacyaccessedapitypereasons): 파일 컨테이너 접근 C617.1
 - [DeepSeek Vision](https://api-docs.deepseek.com/guides/vision/): 현재 deepseek-flash 이미지 입력 지원
+
+## 실제 아이폰 UI 검증 결과
+
+2026-10-13, 연결된 iPhone 16 Pro에서 UI 테스트 3개 모두 통과(실패 0). 샘플 글 저장 후 앱 재실행 시 보관함 유지, 다시 편집·삭제, 미저장 글 닫기 확인, 개인정보 화면 및 사진 미선택 시 AI 버튼 비활성화를 확인했습니다. 서버/API 테스트 5개와 실제 AI 서버 테스트도 통과했습니다. 실제 HEIC·VoiceOver·iPad 검증은 별도 범위입니다.
