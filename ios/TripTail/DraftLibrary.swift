@@ -70,3 +70,21 @@ enum BlogHTML {
         """
     }
 }
+
+// Extract the camera's calendar day without a timezone conversion or a fabricated fallback.
+enum PhotoCaptureDate {
+    static func read(_ exif: [String: Any]) -> String? {
+        for key in ["DateTimeOriginal", "DateTimeDigitized"] {
+            guard let raw = exif[key] as? String else { continue }
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "en_US_POSIX")
+            formatter.timeZone = TimeZone(secondsFromGMT: 0)
+            formatter.dateFormat = "yyyy:MM:dd HH:mm:ss"
+            formatter.isLenient = false
+            guard let date = formatter.date(from: raw), formatter.string(from: date) == raw else { continue }
+            formatter.dateFormat = "yyyy-MM-dd"
+            return formatter.string(from: date)
+        }
+        return nil
+    }
+}

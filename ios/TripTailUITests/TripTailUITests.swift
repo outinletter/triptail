@@ -28,6 +28,16 @@ final class TripTailUITests: XCTestCase {
         app.swipeUp()
         capture("05-privacy-policy")
     }
+    @MainActor func testAutomaticComposerHasNoManualTravelSection() throws {
+        let app = XCUIApplication()
+        app.launch()
+        app.swipeUp()
+        XCTAssertFalse(app.buttons["Google Vision으로 장소 확인"].exists)
+        XCTAssertFalse(app.textFields["여행지 (모르면 비워두세요)"].exists)
+        XCTAssertFalse(app.datePickers.firstMatch.exists)
+        XCTAssertTrue(app.buttons["AI로 사진 분석·글쓰기"].exists)
+        XCTAssertFalse(app.buttons["AI로 사진 분석·글쓰기"].isEnabled)
+    }
     @MainActor func testStyledBlogPreview() throws {
         let app = XCUIApplication()
         app.launch()
