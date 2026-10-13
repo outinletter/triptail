@@ -44,6 +44,17 @@ final class TripTailUITests: XCTestCase {
         XCTAssertTrue(delete.waitForExistence(timeout: 3)); delete.tap()
         XCTAssertFalse(app.sheets.firstMatch.exists)
     }
+    @MainActor func testPhotoSurvivesMapDismissal() throws {
+        let app = XCUIApplication(); app.launchArguments = ["--photo-retention-test"]; app.launch()
+        for _ in 0..<4 { if app.buttons["촬영 위치를 Google 지도에서 보기"].isHittable { break }; app.swipeUp() }
+        XCTAssertTrue(app.buttons["사진 제거"].exists)
+        app.buttons["촬영 위치를 Google 지도에서 보기"].tap()
+        XCTAssertTrue(app.maps.firstMatch.waitForExistence(timeout: 10))
+        app.buttons["완료"].tap()
+        XCTAssertTrue(app.buttons["사진 제거"].waitForExistence(timeout: 5))
+        for _ in 0..<3 { if app.buttons["AI로 사진 분석·글쓰기"].isHittable { break }; app.swipeUp() }
+        XCTAssertTrue(app.buttons["AI로 사진 분석·글쓰기"].isEnabled)
+    }
     @MainActor func testMapPreview() throws {
         let app = XCUIApplication(); app.launchArguments = ["--map-preview-test"]; app.launch()
         XCTAssertTrue(app.maps.firstMatch.waitForExistence(timeout: 10))

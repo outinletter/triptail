@@ -6,7 +6,7 @@ import SafariServices
 struct ComposerView: View {
     let library: DraftLibrary
     @State private var selection: [PhotosPickerItem] = []
-    @State private var photos: [TravelPhoto] = []
+    @Binding var photos: [TravelPhoto]
     @State private var busy = false
     @State private var error: String?
     @State private var draft: TravelDraft?
@@ -39,7 +39,7 @@ struct ComposerView: View {
                 PhotosPicker(selection: $selection, maxSelectionCount: 12, matching: .images, preferredItemEncoding: .current) {
                     Label("사진 선택 (최대 12장)", systemImage: "photo.on.rectangle")
                 }.disabled(busy)
-                Text("선택한 사진만 읽습니다. HEIC도 지원하며 촬영일과 GPS를 기기에서 읽습니다. 사진의 GPS로 촬영 위치를 지도에서 먼저 확인할 수 있습니다.").font(.footnote).foregroundStyle(.secondary)
+                Text("선택한 사진만 읽습니다. HEIC도 지원하며 촬영일과 GPS를 기기에서 읽습니다. GPS 좌표를 Apple 지도에 보내 촬영 지역명을 조회하며 지도에서도 확인할 수 있습니다.").font(.footnote).foregroundStyle(.secondary)
                 ForEach(photos) { photo in
                     HStack(alignment: .top) {
                         if let image = UIImage(data: photo.jpeg) {
@@ -57,7 +57,7 @@ struct ComposerView: View {
                 }
             }
             Section("2. 여행 블로그 만들기") {
-                Button { consent = true } label: { Label("AI로 사진 분석·글쓰기", systemImage: "sparkles") }.buttonStyle(.borderedProminent).controlSize(.large).disabled(busy || photos.isEmpty)
+                Button { consent = true } label: { Label("AI로 사진 분석·글쓰기", systemImage: "sparkles").frame(maxWidth: .infinity, alignment: .center).multilineTextAlignment(.center) }.buttonStyle(.borderedProminent).controlSize(.large).disabled(busy || photos.isEmpty)
                 Text("사진의 장소와 촬영 대상을 인식하고 지도에서 확인한 뒤 관련 자료를 조회해 소개·역사·주변 정보를 담은 블로그 글을 만듭니다. 사진의 인물이나 민감한 정보가 포함되지 않았는지 확인하세요.").font(.footnote).foregroundStyle(.secondary)
                 if busy { ProgressView("사진 처리 또는 AI 응답을 기다리는 중…"); Button("취소") { task?.cancel() } }
             }
@@ -110,9 +110,13 @@ struct ComposerView: View {
         }
         .alert("안내", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) { Button("확인") { error = nil } } message: { Text(error ?? "") }
         .confirmationDialog("저장하지 않은 입력과 사진을 지울까요?", isPresented: $confirmReset, titleVisibility: .visible) { Button("초기화", role: .destructive) { photos = []; selection = [] } }
-        .onDisappear { task?.cancel() }
         #if DEBUG
         .onAppear {
+            if ProcessInfo.processInfo.arguments.contains("--photo-retention-test"), photos.isEmpty {
+                let renderer = UIGraphicsImageRenderer(size: CGSize(width: 40, height: 40))
+                let image = renderer.image { context in UIColor.systemGreen.setFill(); context.fill(CGRect(x: 0, y: 0, width: 40, height: 40)) }
+                photos = [TravelPhoto(jpeg: image.jpegData(compressionQuality: 0.8)!, text: "", coordinate: PlaceCoordinate(latitude: 37.5796, longitude: 126.9770))]
+            }
             if ProcessInfo.processInfo.arguments.contains("--map-preview-test") { photoMap = GoogleMapTarget(url: GoogleMapsURL.search(place: "", coordinate: PlaceCoordinate(latitude: 40.947842, longitude: -4.117433))) }
             if ProcessInfo.processInfo.arguments.contains("--verification-test") {
                 let photo = TravelPhoto(jpeg: UIImage(systemName: "photo")?.jpegData(compressionQuality: 0.8) ?? Data(), text: "", captureDate: "2020-03-04")
@@ -217,7 +221,7 @@ struct PhotoVerificationRow: View {
                 Image(uiImage: image).resizable().scaledToFit().frame(maxHeight: 180).clipShape(RoundedRectangle(cornerRadius: 12))
             }
             PhotoMetadataBubbles(photo: row.photo, place: row.place)
-            if row.photo.coordinate != nil { Text("사진 GPS 촬영 위치를 우선 표시합니다. 촬영 위치와 사진 속 대상의 위치는 다를 수 있습니다.").font(.footnote).foregroundStyle(.secondary) }
+            if row.photo.coordinate != nil { Text("사진에 기록된 촬영 지역을 우선 표시합니다. 촬영 위치와 사진 속 대상의 위치는 다를 수 있습니다.").font(.footnote).foregroundStyle(.secondary) }
             if row.recognized.candidates.isEmpty { Text("장소가 인식되지 않았습니다. 아래에서 실제 장소를 검색해주세요.") }
             ForEach(row.recognized.candidates, id: \.self) { candidate in
                 Button("\(candidate.name) · 인식 점수 \(Int(candidate.score * 100))%") {
@@ -296,7 +300,7 @@ struct GoogleMapBrowser: View {
                     Map(initialPosition: .region(MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: point.latitude, longitude: point.longitude), span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)))) {
                         Marker("확인할 위치", coordinate: CLLocationCoordinate2D(latitude: point.latitude, longitude: point.longitude))
                     }.mapStyle(.standard).accessibilityIdentifier("location-map")
-                    Text(String(format: "%.6f, %.6f", point.latitude, point.longitude)).font(.footnote)
+                    RegionBubble(point: point)
                     Text("미리보기: Apple 지도 · Google 지도는 아래 버튼으로 열립니다.").font(.caption).foregroundStyle(.secondary)
                 } else {
                     ContentUnavailableView("Google 지도에서 장소 검색", systemImage: "map", description: Text("아래 버튼을 눌러 Google 지도 앱 또는 Safari에서 검색 결과를 확인하세요."))
@@ -318,8 +322,8 @@ struct PhotoMetadataBubbles: View {
             bubble(photo.captureTime.map { $0 + " · 카메라 기록 시간" } ?? "촬영 시간 없음", icon: "clock")
             if !place.isEmpty { bubble(place, icon: "mappin") }
             if let point = photo.coordinate {
-                bubble(String(format: "GPS %.5f, %.5f", point.latitude, point.longitude), icon: "location")
-            } else { bubble("사진 GPS 없음 · 지도에서 선택 가능", icon: "location.slash") }
+                RegionBubble(point: point)
+            } else { bubble("촬영 지역 정보 없음 · 지도에서 선택 가능", icon: "location.slash") }
         }
     }
     private func bubble(_ text: String, icon: String) -> some View {
@@ -365,5 +369,28 @@ struct ManualPlaceMap: View {
             }.navigationTitle("지도에서 위치 선택").navigationBarTitleDisplayMode(.inline)
                 .toolbar { ToolbarItem(placement: .cancellationAction) { Button("취소") { dismiss() } } }
         }
+    }
+}
+
+struct RegionBubble: View {
+    let point: PlaceCoordinate
+    @State private var name = "촬영 지역 확인 중…"
+    var body: some View {
+        Label(name, systemImage: "mappin.and.ellipse").font(.caption)
+            .padding(.horizontal, 12).padding(.vertical, 8)
+            .foregroundStyle(Color(red: 0.19, green: 0.36, blue: 0.29))
+            .background(Color(red: 0.92, green: 0.95, blue: 0.89), in: RoundedRectangle(cornerRadius: 16))
+            .task(id: point) {
+                do {
+                    let places = try await CLGeocoder().reverseGeocodeLocation(CLLocation(latitude: point.latitude, longitude: point.longitude), preferredLocale: Locale(identifier: "ko_KR"))
+                    guard !Task.isCancelled else { return }
+                    let place = places.first
+                    var parts: [String] = []
+                    for value in [place?.country, place?.administrativeArea, place?.locality, place?.subLocality] {
+                        if let value, !parts.contains(value) { parts.append(value) }
+                    }
+                    name = parts.isEmpty ? "지역명 확인 불가 · 지도에서 확인" : parts.joined(separator: " · ")
+                } catch { if !Task.isCancelled { name = "지역명 조회 실패 · 지도에서 확인" } }
+            }
     }
 }

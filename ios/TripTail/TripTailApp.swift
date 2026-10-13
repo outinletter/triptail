@@ -3,10 +3,11 @@ import SwiftUI
 @main
 struct TripTailApp: App {
     @State private var library = DraftLibrary()
+    @State private var photos: [TravelPhoto] = []
     var body: some Scene {
         WindowGroup {
             TabView {
-                NavigationStack { ComposerView(library: library) }
+                NavigationStack { ComposerView(library: library, photos: $photos) }
                     .tabItem { Label("새 여행", systemImage: "square.and.pencil") }
                 NavigationStack { LibraryView(library: library) }
                     .tabItem { Label("여행 보관함", systemImage: "books.vertical") }
