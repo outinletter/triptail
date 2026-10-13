@@ -12,7 +12,9 @@ struct TripTailApp: App {
                     .tabItem { Label("여행 보관함", systemImage: "books.vertical") }
                 NavigationStack { PrivacyView() }
                     .tabItem { Label("안내", systemImage: "info.circle") }
-            }.tint(Color(red: 0.12, green: 0.30, blue: 0.23))
+            }
+            .tint(Color(red: 0.19, green: 0.36, blue: 0.29))
+            .preferredColorScheme(.light)
         }
     }
 }

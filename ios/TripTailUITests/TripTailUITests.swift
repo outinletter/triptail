@@ -1,6 +1,33 @@
 import XCTest
 
 final class TripTailUITests: XCTestCase {
+    @MainActor func testReviewWalkthrough() throws {
+        XCUIDevice.shared.orientation = .portrait
+        let app = XCUIApplication()
+        app.launch()
+        func capture(_ name: String) {
+            let image = XCTAttachment(screenshot: app.screenshot())
+            image.name = name
+            image.lifetime = .keepAlways
+            add(image)
+        }
+        XCTAssertTrue(app.buttons["sample"].waitForExistence(timeout: 5))
+        capture("01-create-travel")
+        app.buttons["sample"].tap()
+        XCTAssertTrue(app.navigationBars["여행 글 편집"].waitForExistence(timeout: 5))
+        if !app.buttons["기기에 저장"].waitForExistence(timeout: 5) { app.swipeUp() }
+        XCTAssertTrue(app.buttons["기기에 저장"].waitForExistence(timeout: 5))
+        capture("02-edit-story")
+        app.buttons["기기에 저장"].tap()
+        XCTAssertTrue(app.alerts.buttons["확인"].waitForExistence(timeout: 3))
+        app.alerts.buttons["확인"].tap()
+        capture("03-saved-story")
+        app.buttons["닫기"].tap()
+        app.tabBars.buttons["안내"].tap()
+        capture("04-privacy-guide")
+        app.swipeUp()
+        capture("05-privacy-policy")
+    }
     @MainActor func testSampleSaveReopenAndDelete() throws {
         let app = XCUIApplication()
         app.launch()

@@ -33,6 +33,8 @@ struct DraftEditor: View {
                     Text("공유 전 장소, 읽힌 글자, AI 설명을 확인하세요. HTML에는 사진 자리 설명과 글이 들어갑니다. 실제 사진은 블로그에서 추가하세요.").font(.footnote).foregroundStyle(.secondary)
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(Color(red: 0.965, green: 0.970, blue: 0.948))
             .navigationTitle("여행 글 편집")
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("닫기") { if dirty { discard = true } else { dismiss() } } } }
             .fileExporter(isPresented: $exporting, document: HTMLDocument(html: draft.html), contentType: .html, defaultFilename: "triptail-blog") { result in
@@ -69,6 +71,8 @@ struct LibraryView: View {
                 }
             }.onDelete { offsets in deletion = Set(offsets.map { library.drafts[$0].id }); confirmDelete = true }
         }
+        .scrollContentBackground(.hidden)
+        .background(Color(red: 0.965, green: 0.970, blue: 0.948))
         .navigationTitle("여행 보관함")
         .toolbar { if !library.drafts.isEmpty { EditButton() } }
         .sheet(item: $selected) { DraftEditor(draft: $0, library: library) }
@@ -96,6 +100,8 @@ struct PrivacyView: View {
                 Link("이메일 지원 · 개인정보 삭제 요청", destination: URL(string: "mailto:outintube@gmail.com")!)
                 Text("공개 문의에는 사진, API 키, 개인정보를 올리지 마세요.").font(.footnote)
             }
-        }.navigationTitle("안내 및 개인정보")
+        }.scrollContentBackground(.hidden)
+        .background(Color(red: 0.965, green: 0.970, blue: 0.948))
+        .navigationTitle("안내 및 개인정보")
     }
 }

@@ -18,7 +18,16 @@ struct ComposerView: View {
     var body: some View {
         Form {
             Section {
-                Label("사진에서 시작하는 여행 이야기", systemImage: "leaf.fill").font(.title2.bold())
+                VStack(alignment: .leading, spacing: 14) {
+                    Text("TRAVEL STORY MAKER")
+                        .font(.caption.weight(.bold)).tracking(3)
+                        .foregroundStyle(Color(red: 0.42, green: 0.53, blue: 0.33))
+                    (Text("사진을 정리하고,\n")
+                     + Text("여행 글을 자동으로 ").foregroundColor(Color(red: 0.19, green: 0.36, blue: 0.29))
+                     + Text("완성하세요."))
+                        .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                        .fixedSize(horizontal: false, vertical: true)
+                }.padding(.vertical, 12)
                 Text("사진 속 글자를 기기에서 읽고, 여행 메모로 초안을 만드세요. 인터넷 없이도 저장·편집·공유할 수 있습니다.").foregroundStyle(.secondary)
                 Button("샘플 여행 체험") {
                     draft = TravelDraft(title: "교토의 오후 · 예시", text: "이 글은 기능 체험용 가상 예시입니다.\n\n언덕길을 걸어 올라가 목조 건축과 도시 풍경을 바라보았다.\n\n나만의 사진과 기억을 넣어 여행 기록을 완성해보세요.")
@@ -55,6 +64,8 @@ struct ComposerView: View {
             }
             if !photos.isEmpty || !memo.isEmpty { Section { Button("입력 초기화", role: .destructive) { confirmReset = true }.disabled(busy) } }
         }
+        .scrollContentBackground(.hidden)
+        .background(Color(red: 0.965, green: 0.970, blue: 0.948))
         .navigationTitle("TripTail")
         .onChange(of: selection) { _, items in
             guard !items.isEmpty else { return }

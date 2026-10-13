@@ -1,0 +1,33 @@
+{
+  "configurations": [
+    {
+      "id": "4092e2a0-8b1b-4a29-a174-7fd55c2af282",
+      "name": "Review Recording",
+      "options": {}
+    }
+  ],
+  "defaultOptions": {
+    "targetForVariableExpansion": {
+      "containerPath": "container:TripTail.xcodeproj",
+      "identifier": "000000000000000000000002",
+      "name": "TripTail"
+    },
+    "screenshotsEnabled": true,
+    "systemAttachmentLifetime": "keepAlways",
+    "userAttachmentLifetime": "keepAlways",
+    "preferredScreenCaptureFormat": "video"
+  },
+  "testTargets": [
+    {
+      "target": {
+        "containerPath": "container:TripTail.xcodeproj",
+        "identifier": "00000000000000000000012C",
+        "name": "TripTailUITests"
+      },
+      "selectedTests": [
+        "TripTailUITests/testReviewWalkthrough()"
+      ]
+    }
+  ],
+  "version": 1
+}
