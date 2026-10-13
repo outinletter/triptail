@@ -69,12 +69,13 @@ struct ComposerView: View {
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
+            ToolbarItem(placement: .principal) {
                 HStack(spacing: 10) {
                     Image("BrandIcon").resizable().scaledToFit().frame(width: 36, height: 36)
                         .clipShape(RoundedRectangle(cornerRadius: 9)).accessibilityHidden(true)
                     Text("TripTail").font(.title2.bold())
-                }.accessibilityElement(children: .combine).accessibilityLabel("TripTail")
+                }.fixedSize(horizontal: true, vertical: false)
+                .accessibilityElement(children: .combine).accessibilityLabel("TripTail")
             }
         }
         .onChange(of: selection) { _, items in
