@@ -28,10 +28,27 @@ final class TripTailUITests: XCTestCase {
         app.swipeUp()
         capture("05-privacy-policy")
     }
+    @MainActor func testSwipeDeleteSavedStory() throws {
+        let app = XCUIApplication(); app.launch()
+        app.buttons["sample"].tap()
+        // The sample is saved first; the top library row is the latest saved item.
+        if !app.buttons["기기에 저장"].isHittable { app.swipeUp() }
+        app.buttons["기기에 저장"].tap()
+        XCTAssertTrue(app.alerts.buttons["확인"].waitForExistence(timeout: 3))
+        app.alerts.buttons["확인"].tap(); app.buttons["닫기"].tap()
+        app.tabBars.buttons["여행 보관함"].tap()
+        let row = app.cells.firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 3))
+        row.swipeLeft()
+        let delete = app.buttons["삭제"]
+        XCTAssertTrue(delete.waitForExistence(timeout: 3)); delete.tap()
+        XCTAssertFalse(app.sheets.firstMatch.exists)
+    }
     @MainActor func testAutomaticComposerHasNoManualTravelSection() throws {
         let app = XCUIApplication()
         app.launch()
         app.swipeUp()
+        XCTAssertFalse(app.buttons["기기 내 초안 만들기"].exists)
         XCTAssertFalse(app.buttons["Google Vision으로 장소 확인"].exists)
         XCTAssertFalse(app.textFields["여행지 (모르면 비워두세요)"].exists)
         XCTAssertFalse(app.datePickers.firstMatch.exists)
@@ -45,6 +62,7 @@ final class TripTailUITests: XCTestCase {
         let write = app.buttons["확인 완료 · 블로그 작성"]
         XCTAssertTrue(write.waitForExistence(timeout: 5))
         XCTAssertFalse(write.isEnabled)
+        for _ in 0..<4 { if app.textFields["정확한 장소명 또는 주소 검색"].isHittable { break }; app.swipeUp() }
         app.textFields["정확한 장소명 또는 주소 검색"].tap()
         app.textFields["정확한 장소명 또는 주소 검색"].typeText("Segovia")
         if !app.buttons["입력한 장소명으로 선택"].isHittable { app.swipeUp() }
@@ -74,7 +92,7 @@ final class TripTailUITests: XCTestCase {
         app.buttons["꾸며진 블로그 미리보기"].tap()
         XCTAssertTrue(app.navigationBars["여행 블로그"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 5))
-        XCTAssertTrue(app.webViews.staticTexts["교토의 오후 · 예시"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.webViews.staticTexts["서울 · 경복궁과 북촌 소개 · 예시"].waitForExistence(timeout: 5))
         let proof = XCTAttachment(screenshot: app.screenshot())
         proof.name = "TripTail styled blog preview"
         proof.lifetime = .keepAlways
@@ -97,7 +115,7 @@ final class TripTailUITests: XCTestCase {
         app.terminate()
         app.launch()
         app.tabBars.buttons["여행 보관함"].tap()
-        let entry = app.buttons.containing(.staticText, identifier: "교토의 오후 · 예시").firstMatch
+        let entry = app.buttons.containing(.staticText, identifier: "서울 · 경복궁과 북촌 소개 · 예시").firstMatch
         XCTAssertTrue(entry.waitForExistence(timeout: 5))
         entry.tap()
         XCTAssertTrue(app.textViews["여행 글 본문"].exists)

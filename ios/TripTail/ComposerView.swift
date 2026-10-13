@@ -21,7 +21,7 @@ struct ComposerView: View {
         Form {
             Section {
                 VStack(alignment: .leading, spacing: 14) {
-                    Text("TRAVEL STORY MAKER")
+                    Text("PHOTO · PLACE · HISTORY")
                         .font(.caption.weight(.bold)).tracking(3)
                         .foregroundStyle(Color(red: 0.42, green: 0.53, blue: 0.33))
                     (Text("사진을 정리하고,\n")
@@ -30,9 +30,9 @@ struct ComposerView: View {
                         .font(.system(.largeTitle, design: .rounded, weight: .bold))
                         .fixedSize(horizontal: false, vertical: true)
                 }.padding(.vertical, 12)
-                Text("사진을 선택하면 장소·촬영 대상을 분석합니다. 지도에서 확인한 뒤 나의 여행 블로그를 완성하세요.").foregroundStyle(.secondary)
+                Text("사진을 선택하면 장소·촬영 대상을 분석합니다. 지도에서 확인한 뒤 소개와 역사, 주변 정보를 담은 여행 글을 완성하세요.").foregroundStyle(.secondary)
                 Button("샘플 여행 체험") {
-                    draft = TravelDraft(title: "교토의 오후 · 예시", text: "이 글은 기능 체험용 가상 예시입니다.\n\n언덕길을 걸어 올라가 목조 건축과 도시 풍경을 바라보았다.\n\n나만의 사진과 기억을 넣어 여행 기록을 완성해보세요.")
+                    draft = TravelDraft.seoulSample
                 }.accessibilityIdentifier("sample")
             }
             Section("1. 사진 선택") {
@@ -47,7 +47,7 @@ struct ComposerView: View {
                         }
                         VStack(alignment: .leading) {
                             Text(photo.text.isEmpty ? "장소는 AI 글쓰기에서 자동으로 분석합니다." : photo.text).font(.footnote).lineLimit(4)
-                            Text(photo.captureDate.map { "촬영일: " + $0 } ?? "촬영일 정보 없음").font(.caption).foregroundStyle(.secondary)
+                            PhotoMetadataBubbles(photo: photo)
                             if let coordinate = photo.coordinate {
                                 Button("촬영 위치를 Google 지도에서 보기") { photoMap = GoogleMapTarget(url: GoogleMapsURL.search(place: "", coordinate: coordinate)) }
                             }
@@ -57,9 +57,8 @@ struct ComposerView: View {
                 }
             }
             Section("2. 여행 블로그 만들기") {
-                Button { makeLocalDraft() } label: { Label("기기 내 초안 만들기", systemImage: "pencil.line") }.disabled(busy || photos.isEmpty)
-                Button { consent = true } label: { Label("AI로 사진 분석·글쓰기", systemImage: "sparkles") }.disabled(busy || photos.isEmpty)
-                Text("사진의 장소와 촬영 대상을 인식하고 지도에서 확인한 뒤 관련 자료를 조회해 소개·역사·주변 정보를 담은 블로그 글을 만듭니다. AI는 선택 기능입니다. 사진의 인물이나 민감한 정보가 포함되지 않았는지 확인하세요.").font(.footnote).foregroundStyle(.secondary)
+                Button { consent = true } label: { Label("AI로 사진 분석·글쓰기", systemImage: "sparkles") }.buttonStyle(.borderedProminent).controlSize(.large).disabled(busy || photos.isEmpty)
+                Text("사진의 장소와 촬영 대상을 인식하고 지도에서 확인한 뒤 관련 자료를 조회해 소개·역사·주변 정보를 담은 블로그 글을 만듭니다. 사진의 인물이나 민감한 정보가 포함되지 않았는지 확인하세요.").font(.footnote).foregroundStyle(.secondary)
                 if busy { ProgressView("사진 처리 또는 AI 응답을 기다리는 중…"); Button("취소") { task?.cancel() } }
             }
             if !photos.isEmpty { Section { Button("입력 초기화", role: .destructive) { confirmReset = true }.disabled(busy) } }
@@ -120,12 +119,6 @@ struct ComposerView: View {
             }
         }
         #endif
-    }
-    private func makeLocalDraft() {
-        let observations = photos.enumerated().map { index, photo in
-            "[사진 \(index + 1)]\n촬영일: \(photo.captureDate ?? "정보 없음")\n" + (photo.text.isEmpty ? "사진의 장소와 기억을 편집 화면에서 적어주세요." : "사진에서 읽힌 글자 (확인 필요):\n\(photo.text)")
-        }.joined(separator: "\n\n")
-        draft = TravelDraft(title: "사진으로 남기는 여행", text: observations)
     }
     private func generate() {
         task = Task {
@@ -188,6 +181,8 @@ struct PhotoVerificationView: View {
                 ForEach($rows) { $row in PhotoVerificationRow(row: $row, closeKeyboard: closeKeyboard) }
                 Section { Text("확인 완료 \(rows.filter { $0.isReady }.count) / \(rows.count)장").font(.footnote) }
             }
+            .scrollContentBackground(.hidden)
+            .background(Color(red: 0.965, green: 0.970, blue: 0.948))
             .navigationTitle("장소와 촬영 대상 확인")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -212,6 +207,7 @@ struct PhotoVerificationRow: View {
     @State private var searching = false
     @State private var searchError: String?
     @State private var map: GoogleMapTarget?
+    @State private var manualMap = false
     private enum Field: Hashable { case query, subject }
     @FocusState private var focused: Field?
     var body: some View {
@@ -219,7 +215,7 @@ struct PhotoVerificationRow: View {
             if let image = UIImage(data: row.photo.jpeg) {
                 Image(uiImage: image).resizable().scaledToFit().frame(maxHeight: 180).clipShape(RoundedRectangle(cornerRadius: 12))
             }
-            Text(row.photo.captureDate.map { "촬영일: " + $0 } ?? "촬영일 정보 없음").font(.caption)
+            PhotoMetadataBubbles(photo: row.photo, place: row.place)
             if row.photo.coordinate != nil { Text("사진 GPS 촬영 위치를 우선 표시합니다. 촬영 위치와 사진 속 대상의 위치는 다를 수 있습니다.").font(.footnote).foregroundStyle(.secondary) }
             if row.recognized.candidates.isEmpty { Text("장소가 인식되지 않았습니다. 아래에서 실제 장소를 검색해주세요.") }
             ForEach(row.recognized.candidates, id: \.self) { candidate in
@@ -229,6 +225,7 @@ struct PhotoVerificationRow: View {
             }
             Text(row.place.isEmpty ? "선택한 장소 없음" : "선택한 장소: " + row.place).font(.headline)
             Button("Google 지도에서 위치 확인") { openMap(row.place, coordinate: row.coordinate) }.disabled(row.place.isEmpty && row.coordinate == nil)
+            Button("지도에서 위치 직접 선택", systemImage: "mappin.and.ellipse") { manualMap = true }
             TextField("정확한 장소명 또는 주소 검색", text: $query).focused($focused, equals: .query).submitLabel(.search).onSubmit { focused = nil; search() }
             Button("장소 검색") { search() }.disabled(query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || searching)
             if searching { ProgressView("장소 검색 중…") }
@@ -255,11 +252,17 @@ struct PhotoVerificationRow: View {
             }
             TextField("사진 속 사물·건축물·풍경의 이름", text: Binding(get: { row.subject }, set: { row.subject = String($0.prefix(200)); row.confirmed = false }))
                 .autocorrectionDisabled().focused($focused, equals: .subject).submitLabel(.done).onSubmit { focused = nil }
+            Text("위 날짜·시간·위치 정보와 촬영 대상을 확인한 후 아래를 켜주세요. 정보가 없는 항목은 글에서 생략합니다.").font(.footnote).foregroundStyle(.secondary)
             Toggle("이 장소와 촬영 대상이 맞습니다", isOn: $row.confirmed)
                 .disabled(!PhotoVerificationRules.isKnown(row.place) || !PhotoVerificationRules.isKnown(row.subject))
         }
         .onAppear { if query.isEmpty { query = row.place } }
         .sheet(item: $map) { GoogleMapBrowser(url: $0.url) }
+        .sheet(isPresented: $manualMap) {
+            ManualPlaceMap(initial: row.coordinate) { name, coordinate in
+                row.place = name; row.coordinate = coordinate; row.score = nil; row.confirmed = false
+            }
+        }
         .onChange(of: closeKeyboard) { focused = nil }
     }
     private func openMap(_ place: String, coordinate: PlaceCoordinate?) {
@@ -285,4 +288,63 @@ struct GoogleMapBrowser: UIViewControllerRepresentable {
     let url: URL
     func makeUIViewController(context: Context) -> SFSafariViewController { SFSafariViewController(url: url) }
     func updateUIViewController(_ controller: SFSafariViewController, context: Context) {}
+}
+
+struct PhotoMetadataBubbles: View {
+    let photo: TravelPhoto
+    var place: String = ""
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            bubble(photo.captureDate ?? "촬영 날짜 없음", icon: "calendar")
+            bubble(photo.captureTime.map { $0 + " · 카메라 기록 시간" } ?? "촬영 시간 없음", icon: "clock")
+            if !place.isEmpty { bubble(place, icon: "mappin") }
+            if let point = photo.coordinate {
+                bubble(String(format: "GPS %.5f, %.5f", point.latitude, point.longitude), icon: "location")
+            } else { bubble("사진 GPS 없음 · 지도에서 선택 가능", icon: "location.slash") }
+        }
+    }
+    private func bubble(_ text: String, icon: String) -> some View {
+        Label(text, systemImage: icon).font(.caption).padding(.horizontal, 12).padding(.vertical, 8)
+            .foregroundStyle(Color(red: 0.19, green: 0.36, blue: 0.29))
+            .background(Color(red: 0.92, green: 0.95, blue: 0.89), in: RoundedRectangle(cornerRadius: 16))
+            .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+struct ManualPlaceMap: View {
+    let initial: PlaceCoordinate?
+    let onSelect: (String, PlaceCoordinate) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var point: PlaceCoordinate?
+    @State private var name = ""
+    @State private var position: MapCameraPosition
+    init(initial: PlaceCoordinate?, onSelect: @escaping (String, PlaceCoordinate) -> Void) {
+        self.initial = initial; self.onSelect = onSelect
+        _point = State(initialValue: initial)
+        _position = State(initialValue: initial.map { .region(MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude), span: MKCoordinateSpan(latitudeDelta: 0.02, longitudeDelta: 0.02))) } ?? .automatic)
+    }
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                Text("지도를 이동하거나 확대하고 원하는 위치를 탭하세요.").font(.footnote).padding()
+                MapReader { proxy in
+                    Map(position: $position) {
+                        if let point { Marker("선택한 위치", coordinate: CLLocationCoordinate2D(latitude: point.latitude, longitude: point.longitude)) }
+                    }.mapStyle(.standard).onTapGesture { location in
+                        if let coordinate = proxy.convert(location, from: .local) {
+                            point = PlaceCoordinate(latitude: coordinate.latitude, longitude: coordinate.longitude)
+                        }
+                    }
+                }
+                VStack(alignment: .leading, spacing: 12) {
+                    if let point { Text(String(format: "선택 좌표 %.5f, %.5f", point.latitude, point.longitude)).font(.caption) }
+                    TextField("선택한 위치의 정확한 장소명", text: $name).textFieldStyle(.roundedBorder)
+                    Button("이 위치와 장소명 사용") {
+                        if let point { onSelect(name.trimmingCharacters(in: .whitespacesAndNewlines), point); dismiss() }
+                    }.buttonStyle(.borderedProminent).disabled(point == nil || !PhotoVerificationRules.isKnown(name))
+                }.padding()
+            }.navigationTitle("지도에서 위치 선택").navigationBarTitleDisplayMode(.inline)
+                .toolbar { ToolbarItem(placement: .cancellationAction) { Button("취소") { dismiss() } } }
+        }
+    }
 }
