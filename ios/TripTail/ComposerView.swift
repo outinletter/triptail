@@ -44,7 +44,7 @@ struct ComposerView: View {
                     Label("AI로 사진 분석·글쓰기", systemImage: "sparkles")
                         .font(.headline).frame(maxWidth: .infinity, minHeight: 32).multilineTextAlignment(.center)
                 }.buttonStyle(.borderedProminent).tint(Color(red: 0.76, green: 0.88, blue: 0.80)).foregroundStyle(Color(red: 0.08, green: 0.29, blue: 0.23)).buttonBorderShape(.capsule).controlSize(.large).disabled(busy || photos.isEmpty)
-                Text(photos.isEmpty ? "사진을 선택하면 시작할 수 있어요" : "사진 분석 후 소개·역사·주변 정보를 바로 작성합니다")
+                Text(photos.isEmpty ? "사진을 선택하면 시작할 수 있어요" : "사진 분석 후 역사·시설·주요 사물 정보를 작성합니다")
                     .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
             }.padding(.horizontal, 22).padding(.vertical, 12).background(.regularMaterial)
         }
