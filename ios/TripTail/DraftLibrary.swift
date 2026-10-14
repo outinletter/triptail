@@ -8,7 +8,7 @@ struct TravelDraft: Codable, Identifiable {
     var updated = Date()
     var htmlBody: String?
     static var seoulSample: TravelDraft {
-        TravelDraft(title: "서울 · 경복궁과 북촌 소개 · 예시", text: "기능 체험용 서울 샘플입니다.\n\n개요\n서울은 대한민국의 수도이다. 경복궁과 북촌은 서울의 역사와 전통 건축을 살펴볼 수 있는 장소이다.\n\n역사와 특징\n경복궁은 조선 왕조의 궁궐로, 광화문과 근정전 등이 주요 공간을 이룬다. 북촌에는 한옥과 골목이 남아 있다.\n\n주변 정보\n두 장소 주변에는 삼청동과 인사동이 있다. 관람 시간과 휴관일은 방문 전 공식 안내에서 확인할 수 있다.\n\n참고 자료\n국가유산청 궁능유적본부 https://royal.khs.go.kr/\n서울한옥포털 https://hanok.seoul.go.kr/\n\n사진·촬영 시각은 이 샘플에 포함되지 않는다.")
+        TravelDraft(title: "서울 · 경복궁과 북촌 소개 · 예시", text: "기능 체험용 서울 샘플입니다.\n\n개요\n서울은 대한민국의 수도이다. 경복궁과 북촌은 서울의 역사와 전통 건축을 살펴볼 수 있는 장소이다.\n\n역사\n경복궁은 조선 왕조의 궁궐이다. 북촌에는 전통 한옥과 골목이 남아 있다.\n\n주요 시설과 건축물\n경복궁의 주요 공간에는 광화문과 근정전 등이 있다. 북촌에서는 한옥의 건축과 골목 공간을 살펴볼 수 있다.\n\n참고 자료\n국가유산청 궁능유적본부 https://royal.khs.go.kr/\n서울한옥포털 https://hanok.seoul.go.kr/\n\n사진·촬영 시각은 이 샘플에 포함되지 않는다.")
     }
     var html: String {
         BlogHTML.document(title: title, body: htmlBody ?? text.components(separatedBy: "\n").filter { !$0.isEmpty }.map { "<p>\(BlogHTML.escape($0))</p>" }.joined())
