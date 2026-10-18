@@ -90,13 +90,13 @@ struct ComposerView: View {
         .sheet(item: $verification, onDismiss: {
             if let places = queuedPlaces { queuedPlaces = nil; writeBlog(places) }
         }) { session in
-            PhotoVerificationView(session: session) { queuedPlaces = $0 }
+            PhotoVerificationView(session: session, placeOverrides: placeOverrides) { queuedPlaces = $0 }
         }
         .alert("외부 AI 전송 동의", isPresented: $consent) {
             Button("취소", role: .cancel) {}
             Button("동의하고 전송") { generate() }
         } message: {
-            Text("선택한 축소 사진 \(photos.count)장을 Cloudflare를 통해 Google Vision에 전송해 장소를 인식하고, 인식된 장소명은 Wikipedia 자료 조회에 사용합니다. 사진 분석 후 축소 사진·촬영일·확인한 장소와 촬영 대상·참고 자료를 DeepSeek에 전송해 블로그를 작성합니다. 지도 확인에는 장소명 또는 인식된 좌표를 Google 지도에 전송하고, 장소 검색에는 검색어와 사진 GPS를 기반으로 한 검색 범위를 Apple 지도에 전송할 수 있습니다. 분석용 사진의 GPS와 원본 메타데이터는 제거합니다. Google 지도에서 촬영 위치를 확인하면 사진에서 읽은 GPS 좌표가 Google에 전달됩니다. 인식 결과는 틀릴 수 있으므로 작성된 내용을 확인해주세요. 외부 업체의 보관·처리 정책은 안내 탭에서 확인할 수 있습니다.")
+            Text("선택한 축소 사진 \(photos.count)장을 Cloudflare를 통해 Google Vision에 전송해 장소를 인식하고, 인식된 장소명은 Wikipedia 자료 조회에 사용합니다. 장소 확인 후 축소 사진·촬영일·사진별 직접 메모·확인한 장소와 촬영 대상·참고 자료를 DeepSeek에 전송해 블로그를 작성합니다. 지도 확인에는 장소명 또는 인식된 좌표를 Google 지도에 전송하고, 장소 검색에는 검색어와 사진 GPS를 기반으로 한 검색 범위를 Apple 지도에 전송할 수 있습니다. 분석용 사진의 GPS와 원본 메타데이터는 제거합니다. Google 지도에서 촬영 위치를 확인하면 사진에서 읽은 GPS 좌표가 Google에 전달됩니다. 인식 결과는 틀릴 수 있으므로 작성된 내용을 확인해주세요. 외부 업체의 보관·처리 정책은 안내 탭에서 확인할 수 있습니다.")
         }
         .alert("안내", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) { Button("확인") { error = nil } } message: { Text(error ?? "") }
         .confirmationDialog("저장하지 않은 입력과 사진을 지울까요?", isPresented: $confirmReset, titleVisibility: .visible) { Button("초기화", role: .destructive) { photos = []; selection = []; placeOverrides = [:] } }
@@ -123,7 +123,7 @@ struct ComposerView: View {
                     .font(.system(.largeTitle, design: .rounded, weight: .bold)).fixedSize(horizontal: false, vertical: true)
                 if photos.isEmpty { TravelPostcards().frame(width: 94, height: 150).accessibilityHidden(true) }
             }
-            Text("사진 속 장소를 확인하고,\n역사와 정보를 담은 기록을 남겨보세요.").font(.subheadline).foregroundStyle(.secondary).lineSpacing(4)
+            Text("사진마다 장소·촬영일·직접 메모를 확인하고,\n출처와 함께 다시 검토할 수 있는 여행 기록을 남기세요.").font(.subheadline).foregroundStyle(.secondary).lineSpacing(4)
             if photos.isEmpty {
                 PhotosPicker(selection: $selection, maxSelectionCount: 12, matching: .images, preferredItemEncoding: .current) {
                     HStack { Image(systemName: "photo"); Text("사진 선택하기"); Image(systemName: "chevron.right") }
@@ -174,6 +174,9 @@ struct ComposerView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("사진 \(index + 1)").font(.subheadline.bold())
                     PhotoMetadataBubbles(photo: photo, place: placeOverrides[photo.id] ?? "")
+                    TextField("이 사진의 직접 관찰·여행 메모", text: Binding(get: { photos.first { $0.id == photo.id }?.note ?? "" }, set: { note in
+                        if let current = photos.firstIndex(where: { $0.id == photo.id }) { photos[current].note = String(note.prefix(1000)) }
+                    }), axis: .vertical).lineLimit(2...5).textFieldStyle(.roundedBorder).disabled(busy)
                     if let coordinate = photo.coordinate {
                         Button("촬영 위치를 Google 지도에서 보기") { photoMap = GoogleMapTarget(url: GoogleMapsURL.search(place: "", coordinate: coordinate)) }.buttonStyle(.borderless)
                     }
@@ -192,24 +195,8 @@ struct ComposerView: View {
                 let result = try await AIService.identify(photos)
                 try Task.checkCancellation()
                 guard result.photos.count == photos.count else { throw AIService.ServiceError.message("사진 분석이 불완전합니다. 다시 시도해주세요.") }
-                var places: [ConfirmedPlace] = []
-                for (index, photo) in photos.enumerated() {
-                    let recognized = result.photos[index]
-                    let candidate = recognized.candidates.max { $0.score < $1.score }
-                    var place = placeOverrides[photo.id] ?? candidate?.name ?? ""
-                    if place.isEmpty, let point = photo.coordinate {
-                        let marks = try await CLGeocoder().reverseGeocodeLocation(CLLocation(latitude: point.latitude, longitude: point.longitude), preferredLocale: Locale(identifier: "ko_KR"))
-                        place = marks.first?.name ?? marks.first?.locality ?? ""
-                    }
-                    let subject = recognized.objects?.max { $0.score < $1.score }?.name ?? candidate?.name ?? ""
-                    guard PhotoVerificationRules.isKnown(place), PhotoVerificationRules.isKnown(subject) else {
-                        throw AIService.ServiceError.message("사진 \(index + 1)의 장소나 촬영 대상을 인식하지 못했습니다. 사진 카드에서 지도 위치를 지정하거나 다른 사진으로 다시 시도해주세요.")
-                    }
-                    places.append(ConfirmedPlace(id: recognized.id, place: place, detectionScore: candidate?.score, subject: subject, sources: []))
-                }
-                try Task.checkCancellation(); stage = 2
-                let article = try await AIService.generateVerified(photos: photos, places: places)
-                try Task.checkCancellation(); stage = 3; draft = article
+                guard result.photos.enumerated().allSatisfy({ $0.element.id == String(format: "P%03d", $0.offset + 1) }) else { throw AIService.ServiceError.message("사진 분석 순서가 올바르지 않습니다. 다시 시도해주세요.") }
+                verification = VerificationSession(photos: photos, recognized: result.photos)
             } catch is CancellationError {} catch { self.error = error.localizedDescription }
         }
     }
@@ -248,11 +235,11 @@ struct PhotoVerificationView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var rows: [VerifiedPhotoInput]
     @State private var closeKeyboard = false
-    init(session: VerificationSession, onConfirm: @escaping ([ConfirmedPlace]) -> Void) {
+    init(session: VerificationSession, placeOverrides: [UUID: String] = [:], onConfirm: @escaping ([ConfirmedPlace]) -> Void) {
         self.onConfirm = onConfirm
         _rows = State(initialValue: zip(session.photos, session.recognized).map { photo, recognized in
             let candidate = recognized.candidates.max { $0.score < $1.score }
-            return VerifiedPhotoInput(id: recognized.id, photo: photo, recognized: recognized, place: candidate?.name ?? "", subject: recognized.objects?.max { $0.score < $1.score }?.name ?? "", coordinate: photo.coordinate ?? candidate?.coordinates, score: candidate?.score)
+            return VerifiedPhotoInput(id: recognized.id, photo: photo, recognized: recognized, place: placeOverrides[photo.id] ?? candidate?.name ?? "", subject: recognized.objects?.max { $0.score < $1.score }?.name ?? candidate?.name ?? "", coordinate: photo.coordinate ?? candidate?.coordinates, score: placeOverrides[photo.id] == nil ? candidate?.score : nil)
         })
     }
     var body: some View {
@@ -335,8 +322,17 @@ struct PhotoVerificationRow: View {
                 .autocorrectionDisabled().focused($focused, equals: .subject).submitLabel(.done).onSubmit { focused = nil }
             Text("위 날짜·시간·위치 정보와 촬영 대상을 확인한 후 아래를 켜주세요. 정보가 없는 항목은 글에서 생략합니다.").font(.footnote).foregroundStyle(.secondary)
             Toggle("이 장소와 촬영 대상이 맞습니다", isOn: $row.confirmed)
+                .toggleStyle(.switch)
                 .disabled(!PhotoVerificationRules.isKnown(row.place) || !PhotoVerificationRules.isKnown(row.subject))
+            if !PhotoVerificationRules.isKnown(row.place) {
+                Text("장소를 검색하거나 입력한 뒤 ‘입력한 장소명으로 선택’을 눌러주세요.").font(.footnote).foregroundStyle(.secondary)
+            } else if !PhotoVerificationRules.isKnown(row.subject) {
+                Text("사진 속 사물·건축물·풍경의 이름을 입력하면 확인 스위치를 켤 수 있습니다.").font(.footnote).foregroundStyle(.secondary)
+            }
         }
+        // Form's automatic button style can route a row tap to other buttons,
+        // resetting confirmation when a place candidate is selected again.
+        .buttonStyle(.borderless)
         .onAppear { if query.isEmpty { query = row.place } }
         .sheet(item: $map) { GoogleMapBrowser(url: $0.url) }
         .sheet(isPresented: $manualMap) {

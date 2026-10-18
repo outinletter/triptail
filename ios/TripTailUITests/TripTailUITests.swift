@@ -1,6 +1,20 @@
 import XCTest
 
 final class TripTailUITests: XCTestCase {
+    @MainActor func testSampleEvidenceReview() throws {
+        let app = XCUIApplication(); app.launch(); app.buttons["sample"].tap()
+        let record = app.buttons["P001 · 경복궁 · 예시"]
+        for _ in 0..<5 { if record.isHittable { break }; app.swipeUp() }
+        XCTAssertTrue(record.waitForExistence(timeout: 5)); record.tap()
+        let note = app.staticTexts["evidenceNote-P001"]
+        for _ in 0..<3 { if note.waitForExistence(timeout: 1) { break }; app.swipeUp() }
+        XCTAssertTrue(note.waitForExistence(timeout: 5))
+        let review = app.switches["이 사진의 장소·메모·자료를 검토했습니다"]
+        for _ in 0..<3 { if review.isHittable { break }; app.swipeUp() }
+        XCTAssertTrue(review.waitForExistence(timeout: 5))
+        review.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        let screenshot = XCTAttachment(screenshot: app.screenshot()); screenshot.name = "Photo evidence review"; screenshot.lifetime = .keepAlways; add(screenshot)
+    }
     @MainActor func testReviewWalkthrough() throws {
         XCUIDevice.shared.orientation = .portrait
         let app = XCUIApplication()
@@ -93,6 +107,11 @@ final class TripTailUITests: XCTestCase {
         XCTAssertFalse(write.isEnabled)
         let confirm = app.switches["이 장소와 촬영 대상이 맞습니다"]
         if !confirm.isHittable { app.swipeUp() }
+        confirm.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        XCTAssertTrue(write.isEnabled)
+        // A Form row must not route switch taps to a place-selection button.
+        confirm.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        XCTAssertFalse(write.isEnabled)
         confirm.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
         XCTAssertTrue(write.isEnabled)
         XCTAssertTrue(app.buttons["Google 지도에서 위치 확인"].exists)

@@ -7,11 +7,33 @@ struct TravelDraft: Codable, Identifiable {
     var text: String
     var updated = Date()
     var htmlBody: String?
+    var evidence: [PhotoEvidence]? = nil
     static var seoulSample: TravelDraft {
-        TravelDraft(title: "서울 · 경복궁과 북촌 소개 · 예시", text: "기능 체험용 서울 샘플입니다.\n\n개요\n서울은 대한민국의 수도이다. 경복궁과 북촌은 서울의 역사와 전통 건축을 살펴볼 수 있는 장소이다.\n\n역사\n경복궁은 조선 왕조의 궁궐이다. 북촌에는 전통 한옥과 골목이 남아 있다.\n\n주요 시설과 건축물\n경복궁의 주요 공간에는 광화문과 근정전 등이 있다. 북촌에서는 한옥의 건축과 골목 공간을 살펴볼 수 있다.\n\n참고 자료\n국가유산청 궁능유적본부 https://royal.khs.go.kr/\n서울한옥포털 https://hanok.seoul.go.kr/\n\n사진·촬영 시각은 이 샘플에 포함되지 않는다.")
+        TravelDraft(title: "서울 · 경복궁과 북촌 소개 · 예시", text: "기능 체험용 서울 샘플입니다.\n\n개요\n서울은 대한민국의 수도이다. 경복궁과 북촌은 서울의 역사와 전통 건축을 살펴볼 수 있는 장소이다.\n\n역사\n경복궁은 조선 왕조의 궁궐이다. 북촌에는 전통 한옥과 골목이 남아 있다.\n\n주요 시설과 건축물\n경복궁의 주요 공간에는 광화문과 근정전 등이 있다. 북촌에서는 한옥의 건축과 골목 공간을 살펴볼 수 있다.\n\n참고 자료\n국가유산청 궁능유적본부 https://royal.khs.go.kr/\n서울한옥포털 https://hanok.seoul.go.kr/\n\n사진·촬영 시각은 이 샘플에 포함되지 않는다.", evidence: [PhotoEvidence(id: "P001", place: "경복궁 · 예시", subject: "궁궐 건축", captureDate: nil, captureTime: nil, observedText: "", note: "기능 체험용 가상 메모이며 실제 촬영이나 방문 기록이 아닙니다.", sources: [])])
     }
     var html: String {
-        BlogHTML.document(title: title, body: htmlBody ?? text.components(separatedBy: "\n").filter { !$0.isEmpty }.map { "<p>\(BlogHTML.escape($0))</p>" }.joined())
+        let records = (evidence ?? []).map { item in
+            "<h3>\(BlogHTML.escape(item.id)) · \(BlogHTML.escape(item.place))</h3><p>촬영 대상: \(BlogHTML.escape(item.subject)) · 촬영일: \(BlogHTML.escape(item.captureDate ?? "기록 없음"))</p><p>직접 메모: \(BlogHTML.escape(item.note.isEmpty ? "기록 없음" : item.note))</p><p>자료 검토: \(item.reviewed ? "사용자 확인 완료" : "미검토")</p>"
+        }.joined()
+        let appendix = records.isEmpty ? "" : "<h2>사진별 여행 근거 기록</h2>" + records
+        return BlogHTML.document(title: title, body: (htmlBody ?? text.components(separatedBy: "\n").filter { !$0.isEmpty }.map { "<p>\(BlogHTML.escape($0))</p>" }.joined()) + appendix)
+    }
+}
+
+struct PhotoEvidence: Codable, Identifiable {
+    let id: String
+    let place: String
+    let subject: String
+    let captureDate: String?
+    let captureTime: String?
+    let observedText: String
+    let note: String
+    let sources: [Source]
+    var reviewed = false
+    struct Source: Codable {
+        let title: String
+        let url: String
+        let summary: String
     }
 }
 

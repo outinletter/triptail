@@ -40,11 +40,32 @@ struct DraftEditor: View {
                     }
                     Button("기기에 저장") {
                         draft.updated = Date()
-                        if library.save(draft) { dirty = false; notice = "보관함에 저장했습니다. 사진은 저장되지 않으며 글만 보관됩니다." }
+                        if library.save(draft) { dirty = false; notice = "글과 사진별 근거 기록을 보관함에 저장했습니다. 원본 사진과 GPS는 저장하지 않습니다." }
                         else { notice = library.error }
                     }.disabled(draft.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || draft.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty).buttonStyle(.borderedProminent).tint(Color(red: 0.76, green: 0.88, blue: 0.80)).foregroundStyle(Color(red: 0.08, green: 0.29, blue: 0.23)).buttonBorderShape(.capsule).controlSize(.large)
                 }
                 Section("제목") { TextField("여행 글 제목", text: $draft.title) }
+                if let evidence = draft.evidence, !evidence.isEmpty {
+                    Section("사진별 여행 근거 기록") {
+                        Text("촬영일·직접 메모·확인한 장소와 참고 자료를 글과 함께 기기에 보관합니다. 원본 사진과 GPS는 저장하지 않습니다. 자료 검토 표시는 사용자의 확인이며 사실성 보증이 아닙니다.").font(.footnote).foregroundStyle(.secondary)
+                        ForEach(Array(evidence.enumerated()), id: \.element.id) { index, item in
+                            DisclosureGroup("\(item.id) · \(item.place)") {
+                                LabeledContent("촬영일", value: item.captureDate ?? "기록 없음")
+                                if let time = item.captureTime { LabeledContent("촬영 시각", value: time) }
+                                LabeledContent("촬영 대상", value: item.subject)
+                                Text("직접 메모: " + (item.note.isEmpty ? "기록 없음" : item.note)).accessibilityIdentifier("evidenceNote-\(item.id)")
+                                if !item.observedText.isEmpty { Text("사진에서 읽힌 글자: " + item.observedText).font(.footnote) }
+                                if item.sources.isEmpty { Text("연결된 배경 자료 없음 — 본문의 역사·수치가 근거 없이 추가되지 않았는지 확인하세요.").font(.footnote) }
+                                ForEach(Array(item.sources.enumerated()), id: \.offset) { _, source in
+                                    Text(source.title).font(.headline)
+                                    Text(source.summary).font(.footnote).textSelection(.enabled)
+                                    if let url = URL(string: source.url), url.scheme == "https", ["en.wikipedia.org", "ko.wikipedia.org"].contains(url.host ?? "") { Link("원문과 대조하기", destination: url) }
+                                }
+                                Toggle("이 사진의 장소·메모·자료를 검토했습니다", isOn: Binding(get: { draft.evidence?[index].reviewed ?? false }, set: { draft.evidence?[index].reviewed = $0; dirty = true }))
+                            }
+                        }
+                    }
+                }
                 Section("본문 · 직접 확인하고 수정하세요") { TextEditor(text: $draft.text).frame(minHeight: 280).accessibilityLabel("여행 글 본문") }
                 Section {
                     Button("꾸며진 블로그 미리보기") { showPreview = true }
@@ -89,6 +110,9 @@ struct LibraryView: View {
                             Text(draft.title).font(.headline).foregroundStyle(.primary).lineLimit(2)
                             Text(draft.text).font(.subheadline).lineLimit(2).foregroundStyle(.secondary)
                             Label(draft.updated.formatted(date: .abbreviated, time: .omitted), systemImage: "calendar").font(.caption).foregroundStyle(.secondary)
+                            if let evidence = draft.evidence, !evidence.isEmpty {
+                                Label("사진 근거 \(evidence.count)장 · 자료 검토 \(evidence.filter { $0.reviewed }.count)/\(evidence.count)", systemImage: "checklist").font(.caption).foregroundStyle(.secondary)
+                            }
                         }
                         Spacer(minLength: 0)
                         Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
@@ -111,13 +135,13 @@ struct PrivacyView: View {
     var body: some View {
         List {
             Section("사용 방법") {
-                Text("① 여행 사진을 선택합니다.\n② AI 글쓰기를 누르면 장소·촬영 대상을 분석하고 촬영일을 읽습니다. 장소와 촬영 대상을 자동 분석한 뒤 자료 조회·글쓰기를 바로 진행합니다. 필요하면 사진 카드에서 지도 위치를 지정할 수 있습니다.\n③ 내용을 확인·편집하고 저장 또는 공유합니다.")
-                Text("글은 기기에 저장됩니다. 앱 삭제 시 기기 내 보관함도 삭제됩니다. 기기 백업에는 글이 포함될 수 있습니다. 개별 글은 보관함에서 삭제할 수 있습니다.")
+                Text("① 여행 사진을 선택하고 사진별 직접 관찰·메모를 남깁니다.\n② AI 분석 후 장소·촬영 대상을 직접 확인해야 글쓰기가 시작됩니다. 필요하면 지도에서 위치를 수정하세요.\n③ 편집 화면의 ‘사진별 여행 근거 기록’에서 촬영일·메모·참고 자료를 대조하고 검토 상태를 저장합니다.\n④ 글과 근거 기록을 기기에 저장하거나 HTML로 내보냅니다.")
+                Text("글과 사진별 근거 기록(확인 장소·촬영일·촬영 시각·읽힌 글자·직접 메모·참고 자료·검토 상태)은 기기에 저장됩니다. 원본 사진과 GPS는 보관하지 않습니다. 앱 삭제 시 기기 내 보관함도 삭제됩니다. 기기 백업에는 글과 근거 기록이 포함될 수 있습니다. 개별 글과 연결된 근거 기록은 보관함에서 함께 삭제할 수 있습니다.")
             }
-            Section("개인정보 처리방침 · 2026-10-13") {
+            Section("개인정보 처리방침 · 2026-10-16") {
                 Text("로그인, 광고, 추적 SDK를 사용하지 않습니다. Google Vision에 선택한 축소 사진을 전송해 장소와 글자를 인식할 수 있습니다. 인식하거나 사용자가 지도에서 지정한 장소명을 Wikipedia로 전송해 역사·시설·주요 사물 자료를 조회합니다. 지도에서 위치를 직접 선택하거나 장소 검색 시 검색어를 Apple 지도에 전달하고 Google 지도 확인에는 선택 장소명 또는 인식 좌표를 전달합니다. 사진 GPS는 기기에서 읽으며 지역명 조회 시 Apple에 전달합니다. Google 지도 촬영 위치 표시 및 Apple 지도 검색 범위에 사용할 수 있습니다. 현재 위치 권한은 사용하지 않습니다. 사진은 시스템 사진 선택기로 선택한 항목만 처리하며 전체 사진 보관함이나 현재 위치 권한을 요청하지 않습니다.")
                 Text("선택한 사진은 메모리에서 축소·재인코딩하고 글자 인식은 Apple Vision으로 기기에서 수행합니다. 분석용 축소 사진에서 GPS와 원본 EXIF는 제거합니다. 지도에서 촬영 위치를 확인할 때 GPS 좌표를 Google에 전달하며, 장소 검색 범위를 설정할 때 Apple에 전달할 수 있습니다. 원본 사진과 GPS는 보관함에 저장하지 않습니다. EXIF 촬영 날짜·시간을 별도로 읽어 확인 화면에 표시합니다. 촬영일은 AI 요청과 작성된 글에 사용할 수 있습니다. 촬영일이 없으면 날짜를 임의로 추가하지 않습니다. 사진은 보관함에 저장되지 않습니다.")
-                Text("외부 AI 전송은 매번 동의해야 실행됩니다. 축소 사진, 촬영 지역, 날짜, 촬영 대상과 참고 자료는 Cloudflare의 TripTail 서버를 거쳐 DeepSeek에 전달됩니다. 전송된 데이터는 각 업체의 정책을 따릅니다. 앱은 서버에 여행 글을 저장하는 기능이 없지만 업체의 요청·운영 로그 및 보관 기간은 별도 확인이 필요합니다.")
+                Text("외부 AI 전송은 매번 동의해야 실행됩니다. 축소 사진, 촬영 지역, 촬영일, 사진별 직접 메모, 촬영 대상과 참고 자료는 Cloudflare의 TripTail 서버를 거쳐 DeepSeek에 전달됩니다. 촬영 시각과 기기 내 자료 검토 표시는 별도 AI 요청에 포함하지 않습니다. 전송된 데이터는 각 업체의 정책을 따릅니다. 앱은 서버에 여행 글을 저장하는 기능이 없지만 업체의 요청·운영 로그 및 보관 기간은 별도 확인이 필요합니다.")
                 Text("동의를 거부하려면 전송 안내에서 취소하세요. 다음 요청에서도 다시 동의합니다. 이미 전송된 자료의 삭제 문의는 아래 지원 채널로 요청하세요. 공유한 자료는 선택한 공유 앱의 정책이 적용됩니다.")
                 Link("Google 지도 개인정보 정책", destination: URL(string: "https://policies.google.com/privacy")!)
                 Link("Google Cloud 개인정보 정책", destination: URL(string: "https://cloud.google.com/terms/cloud-privacy-notice")!)
