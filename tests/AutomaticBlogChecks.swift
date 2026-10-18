@@ -67,6 +67,7 @@ final class MockProtocol: URLProtocol {
   assert(result.evidence?.first?.note.contains("PERSONAL_NOTE_SENTINEL") == true)
   assert(result.html.contains("사진별 여행 근거 기록")); assert(result.html.contains("&lt;script&gt;")); assert(!result.html.contains("<script>"))
   var saved = result; saved.evidence?[0].reviewed = true
+  assert(saved.evidence != result.evidence, "Unsaved review changes must differ from persisted evidence")
   let decoded = try JSONDecoder().decode(TravelDraft.self, from: JSONEncoder().encode(saved))
   assert(decoded.evidence?.first?.reviewed == true)
   assert(decoded.evidence?.first?.observedText == "PRIVATE_OCR_SENTINEL")

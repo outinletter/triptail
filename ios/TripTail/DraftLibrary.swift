@@ -20,7 +20,7 @@ struct TravelDraft: Codable, Identifiable {
     }
 }
 
-struct PhotoEvidence: Codable, Identifiable {
+struct PhotoEvidence: Codable, Equatable, Identifiable {
     let id: String
     let place: String
     let subject: String
@@ -30,7 +30,7 @@ struct PhotoEvidence: Codable, Identifiable {
     let note: String
     let sources: [Source]
     var reviewed = false
-    struct Source: Codable {
+    struct Source: Codable, Equatable {
         let title: String
         let url: String
         let summary: String

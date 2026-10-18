@@ -20,6 +20,7 @@ struct DraftEditor: View {
     @State private var notice: String?
     @State private var discard = false
     @State private var dirty = false
+    @State private var initialized = false
     var body: some View {
         NavigationStack {
             Form {
@@ -83,8 +84,8 @@ struct DraftEditor: View {
             }
             .onChange(of: draft.title) { dirty = true }
             .onChange(of: draft.text) { dirty = true; draft.htmlBody = nil }
-            .onAppear { dirty = !library.drafts.contains { $0.id == draft.id }; showPreview = draft.htmlBody != nil }
-            .sheet(isPresented: $showPreview, onDismiss: { if let saved = library.drafts.first(where: { $0.id == draft.id }), saved.title == draft.title && saved.text == draft.text { dirty = false } }) { BlogPreview(draft: draft, photos: previewPhotos, library: library) }
+            .onAppear { guard !initialized else { return }; initialized = true; dirty = !library.drafts.contains { $0.id == draft.id }; showPreview = draft.htmlBody != nil }
+            .sheet(isPresented: $showPreview, onDismiss: { if let saved = library.drafts.first(where: { $0.id == draft.id }), saved.title == draft.title && saved.text == draft.text && saved.htmlBody == draft.htmlBody && saved.evidence == draft.evidence { dirty = false } }) { BlogPreview(draft: draft, photos: previewPhotos, library: library) }
             .interactiveDismissDisabled(dirty)
             .confirmationDialog("저장하지 않은 글을 닫을까요?", isPresented: $discard, titleVisibility: .visible) { Button("저장하지 않고 닫기", role: .destructive) { dismiss() } }
             .alert("안내", isPresented: Binding(get: { notice != nil }, set: { if !$0 { notice = nil } })) { Button("확인") { notice = nil } } message: { Text(notice ?? "") }
@@ -213,5 +214,11 @@ struct BlogWebView: UIViewRepresentable {
         view.isOpaque = false
         return view
     }
-    func updateUIView(_ view: WKWebView, context: Context) { if view.url == nil { view.loadHTMLString(html, baseURL: nil) } }
+    final class Coordinator { var loadedHTML: String? }
+    func makeCoordinator() -> Coordinator { Coordinator() }
+    func updateUIView(_ view: WKWebView, context: Context) {
+        guard context.coordinator.loadedHTML != html else { return }
+        context.coordinator.loadedHTML = html
+        view.loadHTMLString(html, baseURL: nil)
+    }
 }

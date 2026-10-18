@@ -11,6 +11,7 @@ struct ComposerView: View {
     @State private var stage = 0
     @State private var error: String?
     @State private var draft: TravelDraft?
+    @State private var draftPhotos: [TravelPhoto] = []
     @State private var consent = false
     @State private var task: Task<Void, Never>?
     @State private var confirmReset = false
@@ -25,16 +26,10 @@ struct ComposerView: View {
                 JourneySteps(active: stage)
                 photoSelection
                 if !photos.isEmpty { photoDetails }
-                if busy {
-                    VStack(spacing: 12) {
-                        ProgressView(stage == 2 ? "소개·역사 자료로 글을 작성하는 중…" : "선택한 사진을 분석하는 중…")
-                        Button("취소") { task?.cancel() }.buttonStyle(.bordered)
-                    }.frame(maxWidth: .infinity).padding(20).background(.white, in: RoundedRectangle(cornerRadius: 22))
-                }
-                Button("샘플 여행 체험") { draft = TravelDraft.seoulSample }.accessibilityIdentifier("sample")
+                Button("샘플 여행 체험") { draftPhotos = []; draft = TravelDraft.seoulSample }.disabled(busy).accessibilityIdentifier("sample")
                     .font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity).padding(.vertical, 8)
                 if !photos.isEmpty { Button("입력 초기화", role: .destructive) { confirmReset = true }.disabled(busy).font(.footnote) }
-            }.padding(.horizontal, 22).padding(.top, 18).padding(.bottom, 24)
+            }.frame(maxWidth: 760).frame(maxWidth: .infinity).padding(.horizontal, 22).padding(.top, 18).padding(.bottom, 24)
         }
         .safeAreaInset(edge: .bottom) {
             VStack(spacing: 8) {
@@ -42,6 +37,14 @@ struct ComposerView: View {
                     Label("AI로 사진 분석·글쓰기", systemImage: "sparkles")
                         .font(.headline).frame(maxWidth: .infinity, minHeight: 32).multilineTextAlignment(.center)
                 }.buttonStyle(.borderedProminent).tint(Color(red: 0.76, green: 0.88, blue: 0.80)).foregroundStyle(Color(red: 0.08, green: 0.29, blue: 0.23)).buttonBorderShape(.capsule).controlSize(.large).disabled(busy || photos.isEmpty)
+                if busy {
+                    HStack {
+                        ProgressView()
+                        Text(stage == 0 ? "사진 불러오는 중…" : stage == 2 ? "자료 조회·글쓰기 중…" : "사진 분석 중…").font(.caption)
+                        Spacer()
+                        Button("취소") { task?.cancel() }.frame(minWidth: 44, minHeight: 44)
+                    }.accessibilityElement(children: .contain)
+                }
                 Text(photos.isEmpty ? "사진을 선택하면 시작할 수 있어요" : "사진 분석 후 역사·시설·주요 사물 정보를 작성합니다")
                     .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
             }.padding(.horizontal, 22).padding(.vertical, 12).background(.regularMaterial)
@@ -61,9 +64,9 @@ struct ComposerView: View {
             }
         }
         .onChange(of: selection) { _, items in
-            guard !items.isEmpty else { return }
+            guard !items.isEmpty, !busy else { return }
+            busy = true; stage = 0
             task = Task {
-                busy = true; stage = 0
                 defer { busy = false; selection = [] }
                 var loaded: [TravelPhoto] = []
                 do {
@@ -75,7 +78,7 @@ struct ComposerView: View {
                     }
                     try Task.checkCancellation()
                     if !items.isEmpty { photos = Array((photos + loaded).prefix(12)) }
-                } catch is CancellationError {} catch { self.error = error.localizedDescription }
+                } catch { if !Task.isCancelled { self.error = error.localizedDescription } }
             }
         }
         .sheet(item: $manualPhoto) { photo in
@@ -84,7 +87,7 @@ struct ComposerView: View {
             }
         }
         .sheet(item: $photoMap) { GoogleMapBrowser(url: $0.url) }
-        .sheet(item: $draft) { DraftEditor(draft: $0, library: library, previewPhotos: photos) }
+        .sheet(item: $draft) { DraftEditor(draft: $0, library: library, previewPhotos: draftPhotos) }
         .alert("외부 AI 전송 동의", isPresented: $consent) {
             Button("취소", role: .cancel) {}
             Button("동의하고 전송") { generate() }
@@ -92,7 +95,7 @@ struct ComposerView: View {
             Text("선택한 축소 사진 \(photos.count)장을 Cloudflare를 통해 Google Vision에 전송해 장소를 인식하고, 인식된 장소명은 Wikipedia 자료 조회에 사용합니다. 장소 확인 후 축소 사진·촬영일·사진별 직접 메모·확인한 장소와 촬영 대상·참고 자료를 DeepSeek에 전송해 블로그를 작성합니다. 지도 확인에는 장소명 또는 인식된 좌표를 Google 지도에 전송하고, 장소 검색에는 검색어와 사진 GPS를 기반으로 한 검색 범위를 Apple 지도에 전송할 수 있습니다. 분석용 사진의 GPS와 원본 메타데이터는 제거합니다. Google 지도에서 촬영 위치를 확인하면 사진에서 읽은 GPS 좌표가 Google에 전달됩니다. 인식 결과는 틀릴 수 있으므로 작성된 내용을 확인해주세요. 외부 업체의 보관·처리 정책은 안내 탭에서 확인할 수 있습니다.")
         }
         .alert("안내", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) { Button("확인") { error = nil } } message: { Text(error ?? "") }
-        .confirmationDialog("저장하지 않은 입력과 사진을 지울까요?", isPresented: $confirmReset, titleVisibility: .visible) { Button("초기화", role: .destructive) { photos = []; selection = []; placeOverrides = [:] } }
+        .confirmationDialog("저장하지 않은 입력과 사진을 지울까요?", isPresented: $confirmReset, titleVisibility: .visible) { Button("초기화", role: .destructive) { photos = []; selection = []; placeOverrides = [:]; stage = 0 } }
         #if DEBUG
         .onAppear {
             if ProcessInfo.processInfo.arguments.contains("--photo-retention-test"), photos.isEmpty {
@@ -171,16 +174,17 @@ struct ComposerView: View {
                         Button("촬영 위치를 Google 지도에서 보기") { photoMap = GoogleMapTarget(url: GoogleMapsURL.search(place: "", coordinate: coordinate)) }.buttonStyle(.borderless)
                     }
                     Button("지도에서 위치 직접 선택", systemImage: "mappin.and.ellipse") { manualPhoto = photo }.buttonStyle(.borderless).disabled(busy)
-                    Button("사진 제거", role: .destructive) { photos.removeAll { $0.id == photo.id } }.buttonStyle(.borderless).disabled(busy)
+                    Button("사진 제거", role: .destructive) { photos.removeAll { $0.id == photo.id }; placeOverrides[photo.id] = nil; stage = 0 }.buttonStyle(.borderless).disabled(busy)
                 }.padding(16).frame(maxWidth: .infinity, alignment: .leading)
                     .background(.white, in: RoundedRectangle(cornerRadius: 22))
             }
         }
     }
     private func generate() {
+        guard !busy, !photos.isEmpty else { return }
+        busy = true; stage = 1
         task = Task {
-            busy = true; stage = 1
-            defer { busy = false }
+            defer { busy = false; if stage != 3 { stage = 0 } }
             do {
                 let result = try await AIService.identify(photos)
                 try Task.checkCancellation()
@@ -196,8 +200,8 @@ struct ComposerView: View {
                 let places = try AIService.automaticPlaces(photos: photos, recognized: result.photos, placeOverrides: resolvedNames)
                 try Task.checkCancellation(); stage = 2
                 let article = try await AIService.generateVerified(photos: photos, places: places)
-                try Task.checkCancellation(); stage = 3; draft = article
-            } catch is CancellationError {} catch { self.error = error.localizedDescription }
+                try Task.checkCancellation(); stage = 3; draftPhotos = photos; draft = article
+            } catch { if !Task.isCancelled { self.error = error.localizedDescription } }
         }
     }
 }
@@ -311,7 +315,7 @@ struct RegionBubble: View {
 
 struct JourneySteps: View {
     let active: Int
-    private let items = [("photo", "사진 선택"), ("mappin", "장소 확인"), ("doc.text", "글쓰기"), ("checkmark", "완료")]
+    private let items = [("photo", "사진 선택"), ("sparkles", "자동 분석"), ("doc.text", "글쓰기"), ("checkmark", "완료")]
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
             ForEach(0..<4, id: \.self) { index in
