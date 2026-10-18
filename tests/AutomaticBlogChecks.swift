@@ -8,7 +8,7 @@ final class MockProtocol: URLProtocol {
   Self.paths.append(path)
   let data: [String: Any]
   switch path {
-  case "landmarks": data = ["photos": [["id":"P001", "candidates":[["name":"Correct Place", "score":0.8]], "text":"", "error":""], ["id":"P002", "candidates":[["name":"Wrong Place", "score":0.1]], "text":"", "error":""]]]
+  case "landmarks": data = ["photos": [["id":"P001", "candidates":[["name":"Correct Place", "score":0.8]], "text":"", "error":""], ["id":"P002", "candidates":[["name":"Wrong Place", "score":0.1]], "objects":[["name":"Building", "score":0.9]], "text":"", "error":""]]]
   case "research": data = ["results": [["place":"Correct Place", "sources":[["title":"Unrelated", "url":"https://en.wikipedia.org/wiki/Unrelated", "summary":"UNRELATED_SENTINEL"], ["title":"Correct Place", "url":"https://en.wikipedia.org/wiki/Correct_Place", "summary":"Documented history."]], "error":""]]]
   default:
    var bytes = request.httpBody
@@ -50,8 +50,15 @@ final class MockProtocol: URLProtocol {
   do { _ = try await AIService.generateVerified(photos: photos, places: []); assertionFailure("Missing confirmation must block writing") } catch {}
   do { _ = try await AIService.generateVerified(photos: photos, places: [ConfirmedPlace(id:"P001",place:"Correct Place",subject:"미확인",sources:[]), ConfirmedPlace(id:"P002",place:"Another Place",subject:"Building",sources:[])]); assertionFailure("Unknown subject must block writing") } catch {}
   assert(MockProtocol.paths.isEmpty)
-  _ = try await AIService.identify(photos)
-  let result = try await AIService.generateVerified(photos: photos, places: [ConfirmedPlace(id:"P001",place:"Correct Place",detectionScore:0.8,subject:"Aqueduct",sources:[]),ConfirmedPlace(id:"P002",place:"Another Place",subject:"Building",sources:[])])
+  let recognition = try await AIService.identify(photos)
+  let automatic = try AIService.automaticPlaces(photos: photos, recognized: recognition.photos, placeOverrides: [photos[1].id: "Another Place"])
+  assert(automatic[0].place == "Correct Place")
+  assert(automatic[0].subject == "Correct Place")
+  assert(automatic[0].detectionScore == 0.8)
+  assert(automatic[1].place == "Another Place" && automatic[1].detectionScore == nil)
+  do { _ = try AIService.automaticPlaces(photos: photos, recognized: Array(recognition.photos.reversed())); assertionFailure("Reordered results must block writing") } catch {}
+  do { _ = try AIService.automaticPlaces(photos: photos, recognized: [RecognizedPlace(id:"P001",candidates:[],objects:[],text:"",error:""), recognition.photos[1]]); assertionFailure("Unrecognized photo must block writing") } catch {}
+  let result = try await AIService.generateVerified(photos: photos, places: [automatic[0], automatic[1]])
   assert(MockProtocol.paths == ["landmarks","research","deepseek"])
   assert(result.html.contains("<h2>Introduction</h2>"))
   assert(result.evidence?.count == 2)

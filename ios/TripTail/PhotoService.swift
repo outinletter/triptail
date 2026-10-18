@@ -65,6 +65,22 @@ enum AIService {
     static func research(_ places: [String]) async throws -> ResearchResponse {
         try await post("research", body: ["places": places])
     }
+    static func automaticPlaces(photos: [TravelPhoto], recognized: [RecognizedPlace], placeOverrides: [UUID: String] = [:]) throws -> [ConfirmedPlace] {
+        guard !photos.isEmpty, photos.count == recognized.count,
+              recognized.enumerated().allSatisfy({ $0.element.id == String(format: "P%03d", $0.offset + 1) }) else {
+            throw ServiceError.message("사진 분석이 불완전합니다. 다시 시도해주세요.")
+        }
+        return try zip(photos, recognized).enumerated().map { index, pair in
+            let (photo, result) = pair
+            let candidate = result.candidates.max { $0.score < $1.score }
+            let place = placeOverrides[photo.id] ?? candidate?.name ?? ""
+            let subject = result.objects?.max { $0.score < $1.score }?.name ?? candidate?.name ?? ""
+            guard PhotoVerificationRules.isKnown(place), PhotoVerificationRules.isKnown(subject) else {
+                throw ServiceError.message("사진 \(index + 1)의 장소나 촬영 대상을 인식하지 못했습니다. 사진 카드에서 지도 위치를 지정하거나 다른 사진으로 다시 시도해주세요.")
+            }
+            return ConfirmedPlace(id: result.id, place: place, detectionScore: placeOverrides[photo.id] == nil ? candidate?.score : nil, subject: subject, sources: [])
+        }
+    }
     static func generateVerified(photos: [TravelPhoto], places: [ConfirmedPlace]) async throws -> TravelDraft {
         guard places.count == photos.count, !photos.isEmpty, places.enumerated().allSatisfy({ index, place in place.id == String(format: "P%03d", index + 1) && PhotoVerificationRules.isKnown(place.place) && PhotoVerificationRules.isKnown(place.subject) }) else {
             throw ServiceError.message("모든 사진의 장소와 촬영 대상을 먼저 확인해주세요.")

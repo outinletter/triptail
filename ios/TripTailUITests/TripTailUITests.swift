@@ -87,39 +87,6 @@ final class TripTailUITests: XCTestCase {
         XCTAssertTrue(app.buttons["AI로 사진 분석·글쓰기"].exists)
         XCTAssertFalse(app.buttons["AI로 사진 분석·글쓰기"].isEnabled)
     }
-    @MainActor func testPlaceAndSubjectMustBeConfirmed() throws {
-        let app = XCUIApplication()
-        app.launchArguments = ["--verification-test"]
-        app.launch()
-        let write = app.buttons["확인 완료 · 블로그 작성"]
-        XCTAssertTrue(write.waitForExistence(timeout: 5))
-        XCTAssertFalse(write.isEnabled)
-        for _ in 0..<4 { if app.textFields["정확한 장소명 또는 주소 검색"].isHittable { break }; app.swipeUp() }
-        app.textFields["정확한 장소명 또는 주소 검색"].tap()
-        app.textFields["정확한 장소명 또는 주소 검색"].typeText("Segovia")
-        if !app.buttons["입력한 장소명으로 선택"].isHittable { app.swipeUp() }
-        app.buttons["입력한 장소명으로 선택"].tap()
-        XCTAssertFalse(write.isEnabled)
-        let subject = app.textFields["사진 속 사물·건축물·풍경의 이름"]
-        if !subject.isHittable { app.swipeUp() }
-        subject.tap(); subject.typeText("Aqueduct")
-        if app.buttons["입력 완료"].firstMatch.waitForExistence(timeout: 2) { app.buttons["입력 완료"].firstMatch.tap() }
-        XCTAssertFalse(write.isEnabled)
-        let confirm = app.switches["이 장소와 촬영 대상이 맞습니다"]
-        if !confirm.isHittable { app.swipeUp() }
-        confirm.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
-        XCTAssertTrue(write.isEnabled)
-        // A Form row must not route switch taps to a place-selection button.
-        confirm.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
-        XCTAssertFalse(write.isEnabled)
-        confirm.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
-        XCTAssertTrue(write.isEnabled)
-        XCTAssertTrue(app.buttons["Google 지도에서 위치 확인"].exists)
-        let proof = XCTAttachment(screenshot: app.screenshot())
-        proof.name = "TripTail verified photo location and subject"
-        proof.lifetime = .keepAlways
-        add(proof)
-    }
     @MainActor func testStyledBlogPreview() throws {
         let app = XCUIApplication()
         app.launch()
