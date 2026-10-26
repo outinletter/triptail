@@ -8,6 +8,7 @@ struct TravelPhoto: Identifiable, Sendable {
     var text: String
     var captureDate: String? = nil
     var captureTime: String? = nil
+    var captureTimeZoneID: String? = nil
     var coordinate: PlaceCoordinate? = nil
     var note: String = ""
 }
@@ -121,7 +122,7 @@ enum AIService {
         let references = places.flatMap { $0.sources }.flatMap { [$0] + ($0.nearby ?? []) }
         let bibliography = references.isEmpty ? "" : "<h3>참고 자료</h3>" + references.map { "<p>\(BlogHTML.escape($0.title)) — \(BlogHTML.escape($0.url))</p>" }.joined()
         let evidence = zip(photos, boundedPlaces).map { photo, place in
-            PhotoEvidence(id: place.id, place: place.place, subject: place.subject ?? "", captureDate: photo.captureDate, captureTime: photo.captureTime, observedText: photo.text, note: photo.note, sources: place.sources.map { PhotoEvidence.Source(title: $0.title, url: $0.url, summary: $0.summary) })
+            PhotoEvidence(id: place.id, place: place.place, subject: place.subject ?? "", captureDate: photo.captureDate, captureTime: photo.captureTime, captureTimeZoneID: photo.captureTimeZoneID, observedText: photo.text, note: photo.note, sources: place.sources.map { PhotoEvidence.Source(title: $0.title, url: $0.url, summary: $0.summary) })
         }
         return TravelDraft(title: result.titles.first ?? places.first?.place ?? "여행 이야기", text: BlogHTML.plainText(body + bibliography), htmlBody: body + bibliography, evidence: evidence)
     }

@@ -13,7 +13,7 @@ struct TravelDraft: Codable, Identifiable {
     }
     var html: String {
         let records = (evidence ?? []).map { item in
-            "<h3>\(BlogHTML.escape(item.id)) · \(BlogHTML.escape(item.place))</h3><p>촬영 대상: \(BlogHTML.escape(item.subject)) · 촬영일: \(BlogHTML.escape(item.captureDate ?? "기록 없음"))</p><p>직접 메모: \(BlogHTML.escape(item.note.isEmpty ? "기록 없음" : item.note))</p><p>자료 검토: \(item.reviewed ? "사용자 확인 완료" : "미검토")</p>"
+            "<h3>\(BlogHTML.escape(item.id)) · \(BlogHTML.escape(item.place))</h3><p>촬영 대상: \(BlogHTML.escape(item.subject)) · 촬영일: \(BlogHTML.escape(item.captureDate ?? "기록 없음")) · 촬영 시각: \(BlogHTML.escape(item.captureTime ?? "기록 없음"))\(item.captureTimeZoneID.map { " · 위치 시간대: \(BlogHTML.escape($0))" } ?? "")</p><p>직접 메모: \(BlogHTML.escape(item.note.isEmpty ? "기록 없음" : item.note))</p><p>자료 검토: \(item.reviewed ? "사용자 확인 완료" : "미검토")</p>"
         }.joined()
         let appendix = records.isEmpty ? "" : "<h2>사진별 여행 근거 기록</h2>" + records
         return BlogHTML.document(title: title, body: (htmlBody ?? text.components(separatedBy: "\n").filter { !$0.isEmpty }.map { "<p>\(BlogHTML.escape($0))</p>" }.joined()) + appendix)
@@ -26,6 +26,7 @@ struct PhotoEvidence: Codable, Equatable, Identifiable {
     let subject: String
     let captureDate: String?
     let captureTime: String?
+    var captureTimeZoneID: String? = nil
     let observedText: String
     let note: String
     let sources: [Source]
@@ -126,6 +127,29 @@ enum PhotoCaptureDate {
             return formatter.string(from: date)
         }
         return nil
+    }
+
+    static func instant(date: String?, time: String?, timeZoneID: String?) -> Date? {
+        guard let date, let time, let timeZoneID, let timeZone = TimeZone(identifier: timeZoneID) else { return nil }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.timeZone = timeZone
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        formatter.isLenient = false
+        return formatter.date(from: "\(date) \(time)")
+    }
+
+    static func sortedByLocationTimeZone(_ photos: [TravelPhoto]) -> [TravelPhoto] {
+        let indexed = photos.enumerated().map { index, photo in
+            (index: index, photo: photo, instant: instant(date: photo.captureDate, time: photo.captureTime, timeZoneID: photo.captureTimeZoneID))
+        }
+        let dated = indexed.filter { $0.instant != nil }.sorted {
+            if $0.instant == $1.instant { return $0.index < $1.index }
+            return $0.instant! < $1.instant!
+        }
+        let undated = indexed.filter { $0.instant == nil }.sorted { $0.index < $1.index }
+        return (dated + undated).map { $0.photo }
     }
 }
 

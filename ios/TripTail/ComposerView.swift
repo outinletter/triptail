@@ -18,6 +18,7 @@ struct ComposerView: View {
     @State private var photoMap: GoogleMapTarget?
     @State private var manualPhoto: TravelPhoto?
     @State private var placeOverrides: [UUID: String] = [:]
+    @State private var timezoneSortMessage: String?
 
     var body: some View {
         ScrollView {
@@ -40,7 +41,7 @@ struct ComposerView: View {
                 if busy {
                     HStack {
                         ProgressView()
-                        Text(stage == 0 ? "사진 불러오는 중…" : stage == 2 ? "자료 조회·글쓰기 중…" : "사진 분석 중…").font(.caption)
+                        Text(stage == 0 ? "사진 불러오는 중…" : stage == 2 ? "자료 조회·글쓰기 중…" : stage == 4 ? "사진 위치 시간대 확인 중…" : "사진 분석 중…").font(.caption)
                         Spacer()
                         Button("취소") { task?.cancel() }.frame(minWidth: 44, minHeight: 44)
                     }.accessibilityElement(children: .contain)
@@ -77,13 +78,18 @@ struct ComposerView: View {
                         loaded.append(try await PhotoService.prepare(data))
                     }
                     try Task.checkCancellation()
-                    if !items.isEmpty { photos = Array((photos + loaded).prefix(12)) }
+                    if !items.isEmpty { photos = Array((photos + loaded).prefix(12)); timezoneSortMessage = nil }
                 } catch { if !Task.isCancelled { self.error = error.localizedDescription } }
             }
         }
         .sheet(item: $manualPhoto) { photo in
             ManualPlaceMap(initial: photo.coordinate) { name, point in
-                if let index = photos.firstIndex(where: { $0.id == photo.id }) { photos[index].coordinate = point; placeOverrides[photo.id] = name }
+                if let index = photos.firstIndex(where: { $0.id == photo.id }) {
+                    photos[index].coordinate = point
+                    photos[index].captureTimeZoneID = nil
+                    placeOverrides[photo.id] = name
+                    timezoneSortMessage = nil
+                }
             }
         }
         .sheet(item: $photoMap) { GoogleMapBrowser(url: $0.url) }
@@ -92,10 +98,10 @@ struct ComposerView: View {
             Button("취소", role: .cancel) {}
             Button("동의하고 전송") { generate() }
         } message: {
-            Text("선택한 축소 사진 \(photos.count)장을 Cloudflare를 통해 Google Vision에 전송해 장소를 인식하고, 인식된 장소명은 Wikipedia 자료 조회에 사용합니다. 장소 확인 후 축소 사진·촬영일·사진별 직접 메모·확인한 장소와 촬영 대상·참고 자료를 DeepSeek에 전송해 블로그를 작성합니다. 지도 확인에는 장소명 또는 인식된 좌표를 Google 지도에 전송하고, 장소 검색에는 검색어와 사진 GPS를 기반으로 한 검색 범위를 Apple 지도에 전송할 수 있습니다. 분석용 사진의 GPS와 원본 메타데이터는 제거합니다. Google 지도에서 촬영 위치를 확인하면 사진에서 읽은 GPS 좌표가 Google에 전달됩니다. 인식 결과는 틀릴 수 있으므로 작성된 내용을 확인해주세요. 외부 업체의 보관·처리 정책은 안내 탭에서 확인할 수 있습니다.")
+            Text("선택한 축소 사진 \(photos.count)장을 Cloudflare를 통해 Google Vision에 전송해 장소를 인식하고, 인식된 장소명은 Wikipedia 자료 조회에 사용합니다. 장소 확인 후 축소 사진·촬영일·사진별 직접 메모·확인한 장소와 촬영 대상·참고 자료를 DeepSeek에 전송해 블로그를 작성합니다. 지도 확인에는 장소명 또는 인식된 좌표를 Google 지도에 전송하고, 장소 검색과 선택적 현지 시간대 순서 제안에는 사진 GPS 또는 사용자가 지도에서 선택한 위치 좌표를 Apple 지도 서비스에 전송할 수 있습니다. 분석용 사진의 GPS와 원본 메타데이터는 제거합니다. Google 지도에서 촬영 위치를 확인하면 사진에서 읽은 GPS 좌표가 Google에 전달됩니다. 인식 결과는 틀릴 수 있으므로 작성된 내용을 확인해주세요. 외부 업체의 보관·처리 정책은 안내 탭에서 확인할 수 있습니다.")
         }
         .alert("안내", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) { Button("확인") { error = nil } } message: { Text(error ?? "") }
-        .confirmationDialog("저장하지 않은 입력과 사진을 지울까요?", isPresented: $confirmReset, titleVisibility: .visible) { Button("초기화", role: .destructive) { photos = []; selection = []; placeOverrides = [:]; stage = 0 } }
+        .confirmationDialog("저장하지 않은 입력과 사진을 지울까요?", isPresented: $confirmReset, titleVisibility: .visible) { Button("초기화", role: .destructive) { photos = []; selection = []; placeOverrides = [:]; timezoneSortMessage = nil; stage = 0 } }
         #if DEBUG
         .onAppear {
             if ProcessInfo.processInfo.arguments.contains("--photo-retention-test"), photos.isEmpty {
@@ -112,11 +118,11 @@ struct ComposerView: View {
         VStack(alignment: .leading, spacing: 18) {
             Text("PHOTO · PLACE · HISTORY").font(.caption2.weight(.bold)).tracking(3).foregroundStyle(.secondary)
             HStack(alignment: .center, spacing: 12) {
-                (Text("사진을 정리하고,\n") + Text("여행 글을 자동으로 ").foregroundColor(Color(red: 0.03, green: 0.32, blue: 0.26)) + Text("완성하세요."))
+                (Text("여행 사진의 순서를 되찾고,\n") + Text("근거와 함께 기록하세요.").foregroundColor(Color(red: 0.03, green: 0.32, blue: 0.26)))
                     .font(.system(.largeTitle, design: .rounded, weight: .bold)).fixedSize(horizontal: false, vertical: true)
                 if photos.isEmpty { TravelPostcards().frame(width: 94, height: 150).accessibilityHidden(true) }
             }
-            Text("사진마다 장소·촬영일·직접 메모를 확인하고,\n출처와 함께 다시 검토할 수 있는 여행 기록을 남기세요.").font(.subheadline).foregroundStyle(.secondary).lineSpacing(4)
+            Text("짧은 체류와 시차 여행에서 뒤섞인 사진 순서를 위치의 현지 시간대로 제안하고, 장소·메모·출처를 확인해 기록합니다.").font(.subheadline).foregroundStyle(.secondary).lineSpacing(4)
             if photos.isEmpty {
                 PhotosPicker(selection: $selection, maxSelectionCount: 12, matching: .images, preferredItemEncoding: .current) {
                     HStack { Image(systemName: "photo"); Text("사진 선택하기"); Image(systemName: "chevron.right") }
@@ -146,6 +152,15 @@ struct ComposerView: View {
                     .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(Color.gray.opacity(0.3), style: StrokeStyle(lineWidth: 1, dash: [6])))
             }.buttonStyle(.plain).disabled(busy || photos.count >= 12)
             if !photos.isEmpty {
+                if photos.count > 1 {
+                    Button { reorderByLocationTimeZone() } label: {
+                        Label("현지 시간대로 촬영 순서 제안", systemImage: "clock.arrow.circlepath")
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(busy)
+                    Text(timezoneSortMessage ?? "사진 GPS 또는 지도에서 지정한 위치 좌표를 Apple 지도 서비스에 보내 현지 시간대를 확인합니다. 촬영 시각이 없거나 카메라 시계가 현지 시간과 다르면 순서를 직접 조정하세요.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 90), spacing: 10)], spacing: 10) {
                     ForEach(Array(photos.enumerated()), id: \.element.id) { index, photo in
                         ZStack(alignment: .topLeading) {
@@ -166,6 +181,16 @@ struct ComposerView: View {
             ForEach(Array(photos.enumerated()), id: \.element.id) { index, photo in
                 VStack(alignment: .leading, spacing: 12) {
                     Text("사진 \(index + 1)").font(.subheadline.bold())
+                    HStack {
+                        Button("앞으로 이동", systemImage: "arrow.up") {
+                            photos.swapAt(index, index - 1)
+                            timezoneSortMessage = "사진 순서를 직접 조정했습니다. 글은 현재 사진 순서로 작성됩니다."
+                        }.disabled(busy || index == 0)
+                        Button("뒤로 이동", systemImage: "arrow.down") {
+                            photos.swapAt(index, index + 1)
+                            timezoneSortMessage = "사진 순서를 직접 조정했습니다. 글은 현재 사진 순서로 작성됩니다."
+                        }.disabled(busy || index == photos.count - 1)
+                    }.buttonStyle(.borderless)
                     PhotoMetadataBubbles(photo: photo, place: placeOverrides[photo.id] ?? "")
                     TextField("이 사진의 직접 관찰·여행 메모", text: Binding(get: { photos.first { $0.id == photo.id }?.note ?? "" }, set: { note in
                         if let current = photos.firstIndex(where: { $0.id == photo.id }) { photos[current].note = String(note.prefix(1000)) }
@@ -174,7 +199,7 @@ struct ComposerView: View {
                         Button("촬영 위치를 Google 지도에서 보기") { photoMap = GoogleMapTarget(url: GoogleMapsURL.search(place: "", coordinate: coordinate)) }.buttonStyle(.borderless)
                     }
                     Button("지도에서 위치 직접 선택", systemImage: "mappin.and.ellipse") { manualPhoto = photo }.buttonStyle(.borderless).disabled(busy)
-                    Button("사진 제거", role: .destructive) { photos.removeAll { $0.id == photo.id }; placeOverrides[photo.id] = nil; stage = 0 }.buttonStyle(.borderless).disabled(busy)
+                    Button("사진 제거", role: .destructive) { photos.removeAll { $0.id == photo.id }; placeOverrides[photo.id] = nil; timezoneSortMessage = nil; stage = 0 }.buttonStyle(.borderless).disabled(busy)
                 }.padding(16).frame(maxWidth: .infinity, alignment: .leading)
                     .background(.white, in: RoundedRectangle(cornerRadius: 22))
             }
@@ -202,6 +227,42 @@ struct ComposerView: View {
                 let article = try await AIService.generateVerified(photos: photos, places: places)
                 try Task.checkCancellation(); stage = 3; draftPhotos = photos; draft = article
             } catch { if !Task.isCancelled { self.error = error.localizedDescription } }
+        }
+    }
+
+    private func reorderByLocationTimeZone() {
+        guard !busy, photos.count > 1 else { return }
+        busy = true
+        stage = 4
+        timezoneSortMessage = "사진 위치의 시간대를 확인하는 중…"
+        task = Task {
+            defer { busy = false; stage = 0 }
+            let geocoder = CLGeocoder()
+            var resolved = photos
+            var zoneCount = 0
+            for index in resolved.indices {
+                guard !Task.isCancelled else { return }
+                guard let coordinate = resolved[index].coordinate,
+                      resolved[index].captureDate != nil, resolved[index].captureTime != nil else { continue }
+                do {
+                    let marks = try await geocoder.reverseGeocodeLocation(
+                        CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude),
+                        preferredLocale: Locale(identifier: "ko_KR")
+                    )
+                    if let zone = marks.first?.timeZone {
+                        resolved[index].captureTimeZoneID = zone.identifier
+                        zoneCount += 1
+                    }
+                } catch {
+                    // Keep photos without a resolvable local time zone in their original relative order.
+                }
+            }
+            guard !Task.isCancelled else { return }
+            photos = PhotoCaptureDate.sortedByLocationTimeZone(resolved)
+            let sortableCount = photos.filter {
+                PhotoCaptureDate.instant(date: $0.captureDate, time: $0.captureTime, timeZoneID: $0.captureTimeZoneID) != nil
+            }.count
+            timezoneSortMessage = "위치 시간대 확인 \(zoneCount)장 · 순서 계산 가능 \(sortableCount)/\(photos.count)장. 시간대를 확인하지 못한 사진은 뒤쪽에 원래 순서대로 둡니다."
         }
     }
 }
@@ -238,6 +299,7 @@ struct PhotoMetadataBubbles: View {
         VStack(alignment: .leading, spacing: 8) {
             bubble(photo.captureDate ?? "촬영 날짜 없음", icon: "calendar")
             bubble(photo.captureTime.map { $0 + " · 카메라 기록 시간" } ?? "촬영 시간 없음", icon: "clock")
+            if let zone = photo.captureTimeZoneID { bubble("위치 시간대 · \(zone)", icon: "globe") }
             if !place.isEmpty { bubble(place, icon: "mappin") }
             if let point = photo.coordinate {
                 RegionBubble(point: point)
